@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Nómina - PlanillaNica</title>
+    <!-- Google Fonts & Bootstrap Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Estilos Personalizados -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+    {% include '_nav.html' %}
+
+    <div class="container pb-5">
+        
+        <!-- HEADER & BOTÓN PRINCIPAL -->
+        <div class="row align-items-center mb-4">
+            <div class="col-md-6 mb-3 mb-md-0">
+                <h3 class="fw-bold text-slate-800 mb-1">Colaboradores</h3>
+                <p class="text-muted small mb-0">Gestión de expedientes y cálculo automático de deducciones de ley.</p>
+            </div>
+            <div class="col-md-6 text-md-end">
+                <a href="/empleado/nuevo" class="btn btn-primary btn-action shadow-sm px-3 py-2">
+                    <i class="bi bi-person-plus-fill me-1"></i> Registrar Empleado
+                </a>
+            </div>
+        </div>
+
+        <!-- BARRA DE FILTRADO POR FECHA -->
+        <div class="card filter-card mb-4 bg-white">
+            <div class="card-body p-3">
+                <form method="GET" action="/" class="row g-2 align-items-center">
+                    <div class="col-12 col-md-auto fw-semibold text-slate-700 me-2">
+                        <i class="bi bi-funnel text-muted me-1"></i> Filtrar Pagos:
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <input type="date" name="fecha_desde" class="form-control form-control-sm" value="{{ fecha_desde }}" placeholder="Desde">
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <input type="date" name="fecha_hasta" class="form-control form-control-sm" value="{{ fecha_hasta }}" placeholder="Hasta">
+                    </div>
+                    <div class="col-12 col-md-auto d-flex gap-2 ms-auto">
+                        <button type="submit" class="btn btn-primary btn-sm btn-action px-3">
+                            <i class="bi bi-search me-1"></i> Buscar
+                        </button>
+                        {% if fecha_desde or fecha_hasta %}
+                            <a href="/" class="btn btn-light btn-sm btn-action text-muted border">
+                                <i class="bi bi-x-circle me-1"></i> Limpiar
+                            </a>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card filter-card mb-4 bg-white">
+            <div class="card-body p-3">
+                <form method="GET" action="{{ url_for('reporte_planilla_mensual') }}" target="_blank" class="row g-2 align-items-center">
+                    <div class="col-12 col-md-auto fw-semibold text-slate-700 me-2">
+                        <i class="bi bi-file-earmark-bar-graph text-muted me-1"></i> Reporte mensual de pagos:
+                    </div>
+                    <div class="col-7 col-md-3">
+                        <input type="month" name="mes" class="form-control form-control-sm" value="{{ fecha_hasta[:7] if fecha_hasta else mes_actual }}" required>
+                    </div>
+                    <div class="col-5 col-md-auto">
+                        <button type="submit" class="btn btn-outline-primary btn-sm btn-action px-3">
+                            <i class="bi bi-printer me-1"></i> Generar reporte
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- LISTADO DE EMPLEADOS -->
+        <div class="d-flex flex-column gap-3">
+            {% for emp in empleados %}
+            <div class="card employee-card">
+                <div class="card-body p-4">
+                    <div class="row align-items-center">
+                        
+                        <!-- Columna 1: Información Personal -->
+                        <div class="col-lg-4 mb-3 mb-lg-0 border-end-lg">
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <span class="badge {{ 'badge-activo' if emp.activo == 1 else 'badge-inactivo' }} rounded-pill px-2 py-1 small">
+                                    <i class="bi bi-circle-fill me-1" style="font-size: 0.5rem;"></i>
+                                    {{ 'Activo' if emp.activo == 1 else 'Inactivo' }}
+                                </span>
+                                <span class="text-muted small">Cédula: {{ emp.cedula }}</span>
+                            </div>
+                            <h5 class="fw-bold mb-1 text-slate-900">{{ emp.nombre }}</h5>
+                            <p class="text-muted small mb-0"><i class="bi bi-briefcase me-1"></i> {{ emp.cargo }}</p>
+                        </div>
+
+                        <!-- Columna 2: Resumen del Último Pago -->
+                        <div class="col-lg-5 mb-3 mb-lg-0">
+                            <div class="bg-light p-3 rounded-3 border">
+                                <div class="row g-2 text-center text-sm-start">
+                                    <div class="col-4">
+                                        <span class="d-block text-muted" style="font-size: 0.75rem;">Último Bruto</span>
+                                        <span class="fw-semibold text-slate-700">{{ emp.salario_bruto | moneda }}</span>
+                                    </div>
+                                    <div class="col-4">
+                                        <span class="d-block text-muted" style="font-size: 0.75rem;">INSS (7%) + IR</span>
+                                        <span class="fw-semibold text-danger">
+                                            -{{ ((emp.inss_laboral or 0) + (emp.ir_laboral or 0)) | moneda }}
+                                        </span>
+                                    </div>
+                                    <div class="col-4">
+                                        <span class="d-block text-muted" style="font-size: 0.75rem;">Neto a Recibir</span>
+                                        <span class="fw-bold text-success">{{ emp.salario_neto | moneda }}</span>
+                                    </div>
+                                </div>
+                                <div class="mt-2 pt-2 border-top text-muted" style="font-size: 0.75rem;">
+                                    <i class="bi bi-calendar-check me-1"></i> Último cálculo: {{ emp.fecha_pago if emp.fecha_pago else "Sin registros de pago" }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Columna 3: Botones de Acción -->
+                        <div class="col-lg-3 d-flex flex-wrap gap-2 justify-content-lg-end align-items-center">
+                            {% if emp.activo == 1 %}
+                                <a href="/agregar-planilla/{{emp.id}}" class="btn btn-success btn-action w-100 w-sm-auto">
+                                    <i class="bi bi-cash-stack me-1"></i> Pagar
+                                </a>
+                            {% endif %}
+                            
+                            <a href="/empleado/historial/{{emp.id}}" class="btn btn-outline-primary btn-action" title="Ver Historial">
+                                <i class="bi bi-clock-history"></i>
+                            </a>
+
+                            <a href="/empleado/editar/{{emp.id}}" class="btn btn-outline-secondary btn-action" title="Editar Expediente">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+
+                            {% if emp.activo == 1 %}
+                                <form action="/empleado/estado/{{emp.id}}/0" method="POST" class="d-inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                    <button type="submit" class="btn btn-outline-danger btn-action" title="Desactivar" data-confirm="¿Deseas desactivar a este empleado?">
+                                        <i class="bi bi-person-x"></i>
+                                    </button>
+                                </form>
+                            {% else %}
+                                <form action="/empleado/estado/{{emp.id}}/1" method="POST" class="d-inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                    <button type="submit" class="btn btn-outline-success btn-action" title="Reactivar">
+                                        <i class="bi bi-person-check"></i>
+                                    </button>
+                                </form>
+                            {% endif %}
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="text-center py-5 bg-white rounded-3 border">
+                <i class="bi bi-people text-muted display-4"></i>
+                <h5 class="mt-3 text-muted">No se encontraron empleados</h5>
+                <p class="text-muted small">Registra tu primer colaborador o ajusta el rango del filtro por fecha.</p>
+            </div>
+            {% endfor %}
+        </div>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

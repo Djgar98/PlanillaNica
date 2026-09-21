@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detalle de Venta #{{ venta.id }} - PlanillaNica</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    {% include '_nav.html' %}
+
+    <main class="container pb-5">
+        <div class="row mb-4">
+            <div class="col-12">
+                <a href="{{ url_for('ventas') }}" class="text-decoration-none text-muted mb-2 d-inline-block">
+                    <i class="bi bi-arrow-left"></i> Volver a Ventas
+                </a>
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div class="d-flex align-items-center gap-3">
+                        <h3 class="fw-bold text-slate-800 mb-0">Venta #{{ venta.id }}</h3>
+                        
+                        <!-- BOTÓN PARA ABRIR EL TICKET EN OTRA URL -->
+                        <a href="{{ url_for('ticket_venta', venta_id=venta.id) }}" target="_blank" class="btn btn-outline-dark btn-sm shadow-sm">
+                            <i class="bi bi-receipt me-1"></i> Ver como Ticket
+                        </a>
+                    </div>
+
+                    <div>
+                        {% if venta.estado == 'completada' %}
+                            <span class="badge text-bg-success fs-6 px-3 py-2"><i class="bi bi-check-circle-fill me-1"></i>Completada</span>
+                        {% elif venta.estado == 'anulada' %}
+                            <span class="badge text-bg-danger fs-6 px-3 py-2"><i class="bi bi-x-circle-fill me-1"></i>Anulada</span>
+                        {% elif venta.estado == 'devuelta' %}
+                            <span class="badge text-bg-warning text-dark fs-6 px-3 py-2"><i class="bi bi-arrow-return-left me-1"></i>Devuelta</span>
+                        {% elif venta.estado == 'pendiente_anulacion' %}
+                            <span class="badge text-bg-warning text-dark fs-6 px-3 py-2"><i class="bi bi-hourglass-split me-1"></i>Pendiente Anulación</span>
+                        {% elif venta.estado == 'pendiente_devolucion' %}
+                            <span class="badge text-bg-warning text-dark fs-6 px-3 py-2"><i class="bi bi-hourglass-split me-1"></i>Pendiente Devolución</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} mb-4">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="row">
+            <div class="col-lg-8 mb-4 mb-lg-0">
+                <div class="card bg-white shadow-sm mb-4">
+                    <div class="card-header bg-white py-3">
+                        <h5 class="fw-bold mb-0"><i class="bi bi-list-check me-2"></i>Detalle de Productos</h5>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                    <th>Código</th>
+                                    <th>Producto</th>
+                                    <th class="text-center">Cant.</th>
+                                    <th class="text-end">Precio Unit.</th>
+                                    <th class="text-end">Subtotal</th>
+                                    {% if venta.estado == 'completada' and session.get('rol') in ['admin', 'bodega'] %}
+                                    <th class="text-end">Acción</th>
+                                    {% endif %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for d in detalles %}
+                                <tr>
+                                    <td><small class="text-muted">{{ d.codigo }}</small></td>
+                                    <td><strong>{{ d.nombre }}</strong></td>
+                                    <td class="text-center">{{ d.cantidad }}</td>
+                                    <td class="text-end">{{ d.precio_unitario | moneda }}</td>
+                                    <td class="text-end fw-semibold">{{ d.subtotal | moneda }}</td>
+                                    {% if venta.estado == 'completada' and session.get('rol') in ['admin', 'bodega'] %}
+                                    <td class="text-end">
+                                        <button type="button" class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#modalDevolucion{{ d.producto_id }}" title="Devolver parcialmente">
+                                            <i class="bi bi-arrow-return-left"></i>
+                                        </button>
+                                        <!-- Modal -->
+                                        <div class="modal fade text-start" id="modalDevolucion{{ d.producto_id }}" tabindex="-1" aria-hidden="true">
+                                            <div class="modal-dialog modal-sm">
+                                                <div class="modal-content">
+                                                    <form action="{{ url_for('devolucion_parcial', venta_id=venta.id) }}" method="POST">
+                                                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                                        <input type="hidden" name="producto_id" value="{{ d.producto_id }}">
+                                                        <div class="modal-header">
+                                                            <h5 class="modal-title fs-6">Devolución: {{ d.nombre }}</h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                        </div>
+                                                        <div class="modal-body pb-0">
+                                                            <div class="mb-3">
+                                                                <label class="form-label small">Cantidad (Max: {{ d.cantidad }})</label>
+                                                                <input type="number" name="cantidad" class="form-control form-control-sm" min="1" max="{{ d.cantidad }}" value="1" required>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label class="form-label small">Motivo</label>
+                                                                <input type="text" name="motivo" class="form-control form-control-sm" placeholder="Opcional">
+                                                            </div>
+                                                        </div>
+                                                        <div class="modal-footer pt-0 border-0">
+                                                            <button type="submit" class="btn btn-warning btn-sm w-100">Confirmar</button>
+                                                        </div>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    {% endif %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot class="table-light border-top-2">
+                                <tr>
+                                    <td colspan="4" class="text-end fw-bold">TOTAL:</td>
+                                    <td class="text-end fw-bold text-success fs-5">{{ venta.total | moneda }}</td>
+                                    {% if venta.estado == 'completada' and session.get('rol') in ['admin', 'bodega'] %}
+                                    <td></td>
+                                    {% endif %}
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+
+                {% if venta.estado != 'completada' %}
+                <div class="alert alert-warning border-warning shadow-sm">
+                    <h5 class="alert-heading fw-bold"><i class="bi bi-exclamation-triangle-fill me-2"></i> Información de Anulación/Devolución</h5>
+                    <p class="mb-0"><strong>Motivo:</strong> {{ venta.motivo_anulacion or 'No especificado' }}</p>
+                    <hr>
+                    <p class="mb-0 small">Los productos han sido reingresados al inventario de forma automática.</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="col-lg-4">
+                <div class="card bg-white shadow-sm mb-4">
+                    <div class="card-header bg-white py-3">
+                        <h5 class="fw-bold mb-0"><i class="bi bi-info-circle me-2"></i>Información General</h5>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                                <span class="text-muted">Fecha y Hora</span>
+                                <strong>{{ venta.fecha }}</strong>
+                            </li>
+                            <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                                <span class="text-muted">Cliente</span>
+                                <strong>{{ venta.cliente or 'Consumidor Final' }}</strong>
+                            </li>
+                            <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                                <span class="text-muted">Vendedor</span>
+                                <strong>{{ venta.usuario }}</strong>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                {% if venta.estado == 'completada' %}
+
+                    {# Vendedor: solo puede solicitar #}
+                    {% if session.get('rol') == 'vendedor' %}
+                    <div class="card border-warning shadow-sm">
+                        <div class="card-header bg-warning text-dark py-3">
+                            <h5 class="fw-bold mb-0"><i class="bi bi-arrow-return-left me-2"></i>Solicitar Anulación / Devolución</h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="small text-muted mb-3">Envía una solicitud a Bodega o Administración para anular o devolver esta venta.</p>
+                            <form action="{{ url_for('solicitar_anulacion', venta_id=venta.id) }}" method="POST">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold small">Tipo de Solicitud</label>
+                                    <select name="tipo" class="form-select form-select-sm" required>
+                                        <option value="anulacion">Anulación completa</option>
+                                        <option value="devolucion">Devolución</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold small">Motivo / Razón <span class="text-danger">*</span></label>
+                                    <textarea name="motivo" class="form-control form-control-sm" rows="2" required placeholder="Describe el motivo de la solicitud..."></textarea>
+                                </div>
+                                <button type="submit" class="btn btn-warning w-100" onclick="return confirm('¿Enviar solicitud?')">
+                                    <i class="bi bi-send me-1"></i> Enviar Solicitud
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    {# Admin: puede directamente #}
+                    {% elif session.get('rol') == 'admin' %}
+                    <div class="card border-danger shadow-sm">
+                        <div class="card-header bg-danger text-white py-3">
+                            <h5 class="fw-bold mb-0"><i class="bi bi-shield-lock me-2"></i>Zona de Peligro (Admin)</h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="small text-muted mb-3">Como administrador, puedes anular o registrar la devolución directamente.</p>
+                            <form action="{{ url_for('solicitar_anulacion', venta_id=venta.id) }}" method="POST">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold small">Tipo</label>
+                                    <select name="tipo" class="form-select form-select-sm" required>
+                                        <option value="anulacion">Anulación completa</option>
+                                        <option value="devolucion">Devolución</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold small">Motivo <span class="text-danger">*</span></label>
+                                    <textarea name="motivo" class="form-control form-control-sm" rows="2" required placeholder="Motivo de la anulación..."></textarea>
+                                </div>
+                                <button type="submit" class="btn btn-danger w-100">
+                                    <i class="bi bi-x-circle me-1"></i> Solicitar Anulación
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                {% elif venta.estado in ['pendiente_anulacion', 'pendiente_devolucion'] %}
+                    <div class="card border-warning shadow-sm">
+                        <div class="card-body text-center py-4">
+                            <i class="bi bi-hourglass-split fs-2 text-warning"></i>
+                            <p class="mt-2 fw-semibold">Solicitud enviada</p>
+                            <p class="small text-muted">Esta venta tiene una solicitud pendiente de aprobación por Bodega o Administración.</p>
+                            {% if session.get('rol') in ['admin', 'bodega'] %}
+                            <a href="{{ url_for('solicitudes') }}" class="btn btn-warning btn-sm">
+                                <i class="bi bi-arrow-right me-1"></i> Ir a Solicitudes
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

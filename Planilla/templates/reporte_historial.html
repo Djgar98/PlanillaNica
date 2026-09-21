@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reporte de historial - {{ empleado.nombre }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background: #f3f5f7; color: #1f2937; }
+        .reporte { max-width: 1050px; margin: 2rem auto; padding: 2rem; background: #fff; border: 1px solid #dbe1e8; }
+        .encabezado { border-bottom: 2px solid #1d4ed8; }
+        .total { background: #eff6ff; }
+        th { white-space: nowrap; }
+        @media print {
+            @page { size: letter landscape; margin: .8cm; }
+            body { background: #fff; font-size: 9pt; }
+            .reporte { max-width: 26.3cm; margin: 0 auto; padding: 0; border: 0; box-shadow: none !important; }
+            .encabezado { padding-bottom: .5rem !important; margin-bottom: .8rem !important; }
+            .table { font-size: 8.5pt; margin-bottom: 0; }
+            .table > :not(caption) > * > * { padding: .3rem .4rem; }
+            thead { display: table-header-group; }
+            tfoot { display: table-footer-group; }
+            tr { break-inside: avoid; page-break-inside: avoid; }
+            .no-imprimir { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+    <main class="reporte shadow-sm">
+        <header class="encabezado d-flex justify-content-between align-items-start pb-3 mb-4">
+            <div>
+                <h1 class="h4 mb-1">PlanillaNica</h1>
+                <p class="text-muted mb-0">Reporte de historial de nómina</p>
+            </div>
+            <div class="text-end small">
+                <strong>Colaborador: {{ empleado.nombre }}</strong><br>
+                Cédula: {{ empleado.cedula }}<br>
+                Cargo: {{ empleado.cargo }}
+            </div>
+        </header>
+
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Fecha</th><th>Salario base</th><th>H. extras</th><th>Bruto</th>
+                        <th>INSS laboral</th><th>IR</th><th>INSS patronal</th><th class="text-end">Neto</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in planillas %}
+                    <tr>
+                        <td>{{ p.fecha }}</td><td>{{ p.salario_base | moneda }}</td>
+                        <td>{{ p.horas_extras }} h<br><small>+{{ p.pago_horas_extras | moneda }}</small></td>
+                        <td>{{ p.salario_bruto | moneda }}</td><td>-{{ p.inss_laboral | moneda }}</td>
+                        <td>-{{ p.ir_laboral | moneda }}</td><td>{{ p.inss_patronal | moneda }}</td>
+                        <td class="text-end fw-semibold">{{ p.salario_neto | moneda }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="8" class="text-center text-muted py-4">No hay pagos registrados.</td></tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="total fw-bold">
+                    <tr>
+                        <td>TOTALES ({{ planillas | length }})</td><td>{{ totales.salario_base | moneda }}</td>
+                        <td>{{ totales.pago_horas_extras | moneda }}</td><td>{{ totales.salario_bruto | moneda }}</td>
+                        <td>-{{ totales.inss_laboral | moneda }}</td><td>-{{ totales.ir_laboral | moneda }}</td>
+                        <td>{{ totales.inss_patronal | moneda }}</td><td class="text-end text-success">{{ totales.salario_neto | moneda }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        <div class="no-imprimir mt-4 d-flex gap-2">
+            <button class="btn btn-primary" onclick="window.print()">Imprimir reporte</button>
+            <button class="btn btn-outline-secondary" onclick="window.close()">Cerrar</button>
+        </div>
+    </main>
+</body>
+</html>

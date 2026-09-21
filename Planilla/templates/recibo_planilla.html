@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recibo de pago #{{ planilla.id }} - PlanillaNica</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background: #f3f5f7; color: #1f2937; }
+        .recibo { max-width: 680px; margin: 2rem auto; background: #fff; padding: 2rem; border: 1px solid #dbe1e8; }
+        .titulo { border-bottom: 2px solid #1d4ed8; padding-bottom: 1rem; }
+        .total { background: #ecfdf5; border: 1px solid #a7f3d0; }
+        @media print {
+            @page { size: letter portrait; margin: 1.4cm; }
+            body { background: #fff; font-size: 10pt; }
+            .recibo { max-width: 17.5cm; min-height: 0; margin: 0 auto; border: 0; padding: 0; box-shadow: none !important; }
+            .titulo { padding-bottom: .6rem; }
+            .py-4 { padding-top: 1rem !important; padding-bottom: 1rem !important; }
+            .g-4 { --bs-gutter-y: .75rem; }
+            .total { padding: .65rem !important; }
+            .fs-4 { font-size: 1.25rem !important; }
+            .no-imprimir { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+    <main class="recibo shadow-sm">
+        <div class="d-flex justify-content-between align-items-start titulo">
+            <div>
+                <h2 class="h4 mb-1">PlanillaNica</h2>
+                <p class="mb-0 text-muted">Comprobante de pago de nómina</p>
+            </div>
+            <div class="text-end">
+                <strong>RECIBO #{{ planilla.id }}</strong><br>
+                <small class="text-muted">Procesado: {{ planilla.fecha }}</small>
+            </div>
+        </div>
+
+        <section class="row g-3 py-4 border-bottom">
+            <div class="col-md-7"><small class="text-muted d-block">Colaborador</small><strong>{{ planilla.nombre }}</strong></div>
+            <div class="col-md-5"><small class="text-muted d-block">Cédula</small><strong>{{ planilla.cedula }}</strong></div>
+            <div class="col-md-7"><small class="text-muted d-block">Cargo</small>{{ planilla.cargo }}</div>
+            <div class="col-md-5"><small class="text-muted d-block">INSS</small>{{ planilla.numero_inss or 'No registrado' }}</div>
+        </section>
+
+        <section class="row g-4 py-4">
+            <div class="col-md-6">
+                <h3 class="h6 text-uppercase text-muted">Devengos</h3>
+                <div class="d-flex justify-content-between py-2 border-bottom"><span>Salario base aplicado</span><strong>{{ planilla.salario_base | moneda }}</strong></div>
+                <div class="d-flex justify-content-between py-2 border-bottom"><span>Horas extras ({{ planilla.horas_extras }} h)</span><strong>{{ planilla.pago_horas_extras | moneda }}</strong></div>
+                <div class="d-flex justify-content-between pt-2"><strong>Salario bruto</strong><strong>{{ planilla.salario_bruto | moneda }}</strong></div>
+            </div>
+            <div class="col-md-6">
+                <h3 class="h6 text-uppercase text-muted">Deducciones</h3>
+                <div class="d-flex justify-content-between py-2 border-bottom"><span>INSS laboral ({{ '%.1f'|format((planilla.inss_laboral_tasa if planilla.inss_laboral_tasa is not none else 0.07) * 100) }}%)</span><strong>-{{ planilla.inss_laboral | moneda }}</strong></div>
+                <div class="d-flex justify-content-between py-2 border-bottom"><span>IR laboral</span><strong>-{{ planilla.ir_laboral | moneda }}</strong></div>
+                <div class="d-flex justify-content-between pt-2"><strong>Total deducciones</strong><strong>-{{ (planilla.inss_laboral + planilla.ir_laboral) | moneda }}</strong></div>
+            </div>
+        </section>
+
+        <section class="total rounded p-3 d-flex justify-content-between align-items-center">
+            <span class="fw-semibold">NETO A RECIBIR</span>
+            <strong class="fs-4 text-success">{{ planilla.salario_neto | moneda }}</strong>
+        </section>
+        <p class="small text-muted mt-3 mb-0">Aporte patronal INSS: {{ planilla.inss_patronal | moneda }} ({{ '%.1f'|format((planilla.inss_patronal_tasa if planilla.inss_patronal_tasa is not none else (planilla.inss_patronal / planilla.salario_bruto if planilla.salario_bruto else 0)) * 100) }}%).</p>
+
+        <div class="no-imprimir d-flex justify-content-between mt-4 pt-3 border-top">
+            <button class="btn btn-primary" onclick="window.print()">Imprimir recibo</button>
+            <button class="btn btn-outline-secondary" onclick="window.close()">Cerrar</button>
+        </div>
+    </main>
+</body>
+</html>

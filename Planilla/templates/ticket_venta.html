@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ticket Venta #{{ venta.id }} - PlanillaNica</title>
+    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f1f3f5;
+        }
+        .ticket-box {
+            max-width: 380px;
+            margin: 40px auto;
+            background: #fff;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            font-family: 'Courier Prime', Courier, monospace;
+            font-size: 13px;
+            color: #000;
+            border-top: 4px solid #000;
+        }
+        .ticket-divider {
+            border-top: 1px dashed #999;
+            margin: 10px 0;
+        }
+        
+        /* REGLAS ESPECÍFICAS PARA IMPRESIÓN Y TICKET */
+        @media print {
+            @page {
+                size: 80mm 200mm; /* Ancho estándar de impresora térmica (80mm) */
+                margin: 0;
+            }
+            body {
+                background-color: #fff !important;
+                margin: 0;
+                padding: 0;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .ticket-box {
+                width: 76mm !important;
+                max-width: 76mm !important;
+                margin: 0 auto !important;
+                box-shadow: none !important;
+                padding: 5mm !important;
+                border: none !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="container my-3 pb-5">
+        <!-- Botones de navegación (No se imprimen) -->
+        <div class="d-flex justify-content-between align-items-center mb-3 no-print mx-auto" style="max-width: 380px;">
+            <a href="{{ url_for('detalle_venta', venta_id=venta.id) }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left me-1"></i> Volver al Detalle
+            </a>
+            <button onclick="window.print()" class="btn btn-dark btn-sm">
+                <i class="bi bi-printer me-1"></i> Imprimir Ticket
+            </button>
+        </div>
+
+        <!-- TICKET DE COMPRA -->
+        <div class="ticket-box">
+            <div class="text-center mb-2">
+                <h5 class="fw-bold mb-0 text-uppercase">PlanillaNica</h5>
+                <p class="mb-1 text-muted small">Sistema de Ventas & Inventario</p>
+                <p class="mb-0 fw-bold">COMPROBANTE DE VENTA</p>
+            </div>
+
+            <div class="ticket-divider"></div>
+
+            <div class="small mb-2">
+                <div><strong>TICKET N°:</strong> #{{ venta.id }}</div>
+                <div><strong>FECHA:</strong> {{ venta.fecha }}</div>
+                <div><strong>CLIENTE:</strong> {{ venta.cliente if venta.cliente else 'General' }}</div>
+                <div><strong>CAJERO/A:</strong> {{ venta.usuario }}</div>
+                <div><strong>ESTADO:</strong> <span class="text-uppercase">{{ venta.estado }}</span></div>
+            </div>
+
+            <div class="ticket-divider"></div>
+
+            <div class="table-responsive">
+                <table class="table table-sm table-borderless mb-0" style="font-size: 12px; font-family: inherit;">
+                    <thead>
+                        <tr class="border-bottom">
+                            <th class="ps-0">CANT / DESCRIPCIÓN</th>
+                            <th class="text-end pe-0">TOTAL</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for d in detalles %}
+                        <tr>
+                            <td class="ps-0">
+                                <strong>{{ d.cantidad }}x {{ d.nombre }}</strong><br>
+                                <span class="text-muted" style="font-size: 11px;">{{ d.precio_unitario | moneda }} c/u</span>
+                            </td>
+                            <td class="text-end pe-0 align-top">{{ d.subtotal | moneda }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="ticket-divider"></div>
+
+            <div class="small">
+                <div class="d-flex justify-content-between">
+                    <span>SUBTOTAL:</span>
+                    <span>{{ venta.subtotal | moneda }}</span>
+                </div>
+                <div class="d-flex justify-content-between fw-bold fs-6 mt-1 border-top pt-1">
+                    <span>TOTAL:</span>
+                    <span>{{ venta.total | moneda }}</span>
+                </div>
+            </div>
+
+            {% if venta.motivo_anulacion %}
+            <div class="ticket-divider"></div>
+            <div class="small text-danger">
+                <strong>MOTIVO ANULACIÓN:</strong><br>{{ venta.motivo_anulacion }}
+            </div>
+            {% endif %}
+
+            <div class="ticket-divider"></div>
+
+            <div class="text-center small text-muted mt-2">
+                <p class="mb-1">¡GRACIAS POR SU COMPRA!</p>
+                <p class="mb-0" style="font-size: 11px;">Conserve su ticket para cambios o garantías.</p>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

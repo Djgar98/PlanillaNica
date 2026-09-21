@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Historial de Planillas - PlanillaNica</title>
+    <!-- Google Fonts & Bootstrap Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Estilos Personalizados -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+    {% include '_nav.html' %}
+
+    <div class="container pb-5">
+        
+        <!-- CABECERA DE DATOS DEL COLABORADOR -->
+        <div class="card mb-4 bg-white">
+            <div class="card-body p-4">
+                <div class="row align-items-center g-3">
+                    <div class="col-md-7">
+                        <span class="text-muted small d-block mb-1"><i class="bi bi-clock-history me-1"></i> Historial Individual de Nómina</span>
+                        <h4 class="fw-bold text-slate-900 mb-1">{{ empleado.nombre }}</h4>
+                        <div class="d-flex flex-wrap gap-3 text-muted small mt-2">
+                            <span><i class="bi bi-card-text me-1"></i> <b>Cédula:</b> {{ empleado.cedula }}</span>
+                            <span><i class="bi bi-person-vcard me-1"></i> <b>INSS:</b> {{ empleado.numero_inss or 'N/A' }}</span>
+                            <span><i class="bi bi-briefcase me-1"></i> <b>Cargo:</b> {{ empleado.cargo }}</span>
+                        </div>
+                    </div>
+                    <div class="col-md-5 text-md-end border-start-md">
+                        <span class="text-muted d-block" style="font-size: 0.75rem;">Total de Pagos Registrados</span>
+                        <span class="fs-4 fw-bold text-primary">{{ planillas | length }} Registros</span>
+                        <div class="mt-2">
+                            <a href="{{ url_for('reporte_historial_empleado', empleado_id=empleado.id) }}" target="_blank" class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-file-earmark-bar-graph me-1"></i> Reporte e impresión
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TABLA DE DETALLE DE PLANILLAS -->
+        <div class="card bg-white overflow-hidden">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Fecha Proceso</th>
+                            <th>Salario Base</th>
+                            <th>H. Extras</th>
+                            <th>Salario Bruto</th>
+                            <th>INSS Lab.</th>
+                            <th>IR Laboral</th>
+                            <th>INSS Patronal</th>
+                            <th class="text-end">Salario Neto</th>
+                            <th class="text-end">Recibo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in planillas %}
+                        <tr>
+                            <td class="text-muted"><i class="bi bi-calendar3 me-1"></i> {{ p.fecha }}</td>
+                            <td>{{ p.salario_base | moneda }}</td>
+                            <td>
+                                <span class="fw-medium">{{ p.horas_extras }} hrs</span>
+                                <small class="text-muted d-block" style="font-size: 0.75rem;">+{{ p.pago_horas_extras | moneda }}</small>
+                            </td>
+                            <td class="fw-semibold text-slate-800">{{ p.salario_bruto | moneda }}</td>
+                            <td class="text-danger">-{{ p.inss_laboral | moneda }}</td>
+                            <td class="text-danger">-{{ p.ir_laboral | moneda }}</td>
+                            
+                            <td class="text-slate-600">
+                                {{ p.inss_patronal | moneda }}
+                                {% if p.salario_bruto > 0 %}
+                                    <span class="badge bg-light text-secondary border ms-1" style="font-size: 0.7rem;">
+                                        {{ '%.1f'|format((p.inss_patronal_tasa if p.inss_patronal_tasa is not none else p.inss_patronal / p.salario_bruto) * 100) }}%
+                                    </span>
+                                {% endif %}
+                            </td>
+                            
+                            <td class="text-end fw-bold text-success fs-6">{{ p.salario_neto | moneda }}</td>
+                            <td class="text-end">
+                                <a href="{{ url_for('recibo_planilla', planilla_id=p.id) }}" target="_blank" class="btn btn-outline-secondary btn-sm" title="Abrir recibo imprimible">
+                                    <i class="bi bi-printer"></i> Imprimir
+                                </a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="9" class="text-center py-5 text-muted">
+                                <i class="bi bi-file-earmark-x display-5 d-block mb-2 text-slate-300"></i>
+                                No se registran planillas procesadas para este colaborador.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

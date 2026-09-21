@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solicitudes de Anulación - PlanillaNica</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    {% include '_nav.html' %}
+
+    <main class="container pb-5">
+        <div class="row align-items-center mb-4">
+            <div class="col">
+                <h3 class="fw-bold mb-1">
+                    <i class="bi bi-arrow-return-left text-primary me-2"></i>
+                    Solicitudes de Anulación / Devolución
+                </h3>
+                <p class="text-muted small mb-0">
+                    {% if session.get('rol') in ['admin', 'bodega'] %}
+                        Administra y resuelve las solicitudes pendientes de los vendedores.
+                    {% else %}
+                        Mis solicitudes enviadas.
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        <i class="bi bi-info-circle-fill me-2"></i>{{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="card bg-white shadow-sm">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Venta #</th>
+                            <th>Tipo</th>
+                            <th>Motivo</th>
+                            <th>Solicitado por</th>
+                            <th>Fecha Solicitud</th>
+                            <th>Monto</th>
+                            <th>Estado</th>
+                            {% if session.get('rol') in ['admin', 'bodega'] %}
+                            <th class="text-end">Acciones</th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for sol in solicitudes %}
+                        <tr>
+                            <td class="text-muted small">{{ sol.id }}</td>
+                            <td>
+                                <a href="{{ url_for('detalle_venta', venta_id=sol.venta_id) }}" class="text-decoration-none fw-semibold">
+                                    #{{ sol.venta_id }}
+                                </a>
+                            </td>
+                            <td>
+                                {% if sol.tipo == 'anulacion' %}
+                                    <span class="badge text-bg-danger">Anulación</span>
+                                {% else %}
+                                    <span class="badge text-bg-warning text-dark">Devolución</span>
+                                {% endif %}
+                            </td>
+                            <td class="small">{{ sol.motivo }}</td>
+                            <td class="small">{{ sol.usuario }}</td>
+                            <td class="small text-nowrap">{{ sol.fecha_solicitud[:16] if sol.fecha_solicitud else '—' }}</td>
+                            <td class="small fw-semibold">C$ {{ "%.2f"|format(sol.total) }}</td>
+                            <td>
+                                {% if sol.estado == 'pendiente' %}
+                                    <span class="badge text-bg-warning text-dark"><i class="bi bi-hourglass-split me-1"></i>Pendiente</span>
+                                {% elif sol.estado == 'aprobada' %}
+                                    <span class="badge text-bg-success"><i class="bi bi-check-circle-fill me-1"></i>Aprobada</span>
+                                {% else %}
+                                    <span class="badge text-bg-secondary"><i class="bi bi-x-circle-fill me-1"></i>Rechazada</span>
+                                {% endif %}
+                            </td>
+                            {% if session.get('rol') in ['admin', 'bodega'] %}
+                            <td class="text-end">
+                                {% if sol.estado == 'pendiente' %}
+                                <div class="d-flex gap-1 justify-content-end">
+                                    <form method="POST" action="{{ url_for('resolver_solicitud', solicitud_id=sol.id) }}" onsubmit="return confirm('¿Aprobar esta solicitud? Se restaurará el stock.')">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                        <input type="hidden" name="accion" value="aprobar">
+                                        <button class="btn btn-sm btn-success"><i class="bi bi-check-lg"></i> Aprobar</button>
+                                    </form>
+                                    <form method="POST" action="{{ url_for('resolver_solicitud', solicitud_id=sol.id) }}">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                        <input type="hidden" name="accion" value="rechazar">
+                                        <button class="btn btn-sm btn-outline-danger"><i class="bi bi-x-lg"></i> Rechazar</button>
+                                    </form>
+                                </div>
+                                {% else %}
+                                <span class="text-muted small">Resuelta</span>
+                                {% endif %}
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="9" class="text-center py-5 text-muted">
+                                <i class="bi bi-check2-circle fs-2 d-block mb-2"></i>
+                                No hay solicitudes registradas.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

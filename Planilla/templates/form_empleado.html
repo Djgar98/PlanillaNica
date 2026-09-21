@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ 'Editar Empleado' if empleado else 'Nuevo Empleado' }} - PlanillaNica</title>
+    <!-- Google Fonts & Bootstrap Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+    {% include '_nav.html' %}
+
+    <div class="container pb-5" style="max-width: 800px;">
+        
+        <!-- ALERTAS FLASH -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }} alert-dismissible fade show mb-4 shadow-sm" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i> {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <div class="card bg-white shadow-sm border-0">
+            <div class="card-body p-4 p-md-5">
+                
+                <div class="d-flex align-items-center gap-3 mb-4 pb-3 border-bottom">
+                    <div class="bg-primary bg-opacity-10 text-primary p-3 rounded-3 fs-4">
+                        <i class="bi {{ 'bi-person-gear' if empleado and empleado.get('id') else 'bi-person-plus-fill' }}"></i>
+                    </div>
+                    <div>
+                        <h4 class="fw-bold mb-1 text-slate-900">{{ 'Editar Expediente Laboral' if empleado and empleado.get('id') else 'Registro de Nuevo Empleado' }}</h4>
+                        <p class="text-muted small mb-0">Completa los datos de identificación y contratación del colaborador.</p>
+                    </div>
+                </div>
+
+                <form method="POST" id="formEmpleado">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    
+                    <h5 class="fw-bold mb-3 text-primary">Datos Personales</h5>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label">Primer Nombre <span class="text-danger">*</span></label>
+                            <input type="text" name="primer_nombre" class="form-control" placeholder="Ej: Juan" value="{{ empleado.primer_nombre if empleado else '' }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Segundo Nombre</label>
+                            <input type="text" name="segundo_nombre" class="form-control" placeholder="Ej: José" value="{{ empleado.segundo_nombre if empleado else '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Primer Apellido <span class="text-danger">*</span></label>
+                            <input type="text" name="primer_apellido" class="form-control" placeholder="Ej: Pérez" value="{{ empleado.primer_apellido if empleado else '' }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Segundo Apellido</label>
+                            <input type="text" name="segundo_apellido" class="form-control" placeholder="Ej: López" value="{{ empleado.segundo_apellido if empleado else '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Cédula de Identidad <span class="text-danger">*</span></label>
+                            <input type="text" name="cedula" id="cedula" class="form-control" placeholder="000-000000-0000X" value="{{ empleado.cedula if empleado else '' }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Número INSS</label>
+                            <input type="text" name="numero_inss" id="numero_inss" class="form-control" placeholder="1234567-8" value="{{ empleado.numero_inss if empleado else '' }}">
+                        </div>
+                    </div>
+
+                    <h5 class="fw-bold mb-3 text-primary">Datos Laborales</h5>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label">Cargo <span class="text-danger">*</span></label>
+                            <select name="cargo_id" class="form-select" required>
+                                <option value="" disabled {% if not empleado or not empleado.cargo_id %}selected{% endif %}>Seleccione un cargo</option>
+                                {% for cargo in cargos %}
+                                <option value="{{ cargo.id }}" {% if empleado and (empleado.cargo_id|string) == (cargo.id|string) %}selected{% endif %}>{{ cargo.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Departamento <span class="text-danger">*</span></label>
+                            <select name="departamento_id" class="form-select" required>
+                                <option value="" disabled {% if not empleado or not empleado.get('departamento_id') %}selected{% endif %}>Seleccione un departamento</option>
+                                {% for depto in departamentos %}
+                                <option value="{{ depto.id }}" {% if empleado and (empleado.get('departamento_id')|string) == (depto.id|string) %}selected{% endif %}>{{ depto.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Fecha de Ingreso</label>
+                            <input type="date" name="fecha_ingreso" class="form-control" value="{{ empleado.fecha_ingreso if empleado else '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Salario Base Mensual (C$) <span class="text-danger">*</span></label>
+                            <input type="hidden" name="salario_base" id="salario_base" value="{{ empleado.salario_base if empleado else '0' }}">
+                            <input type="text" id="salario_display" class="form-control font-monospace text-end" placeholder="C$ 0.00" required>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                        <a href="{{ url_for('index') }}" class="btn btn-light">Cancelar</a>
+                        <button type="submit" class="btn btn-primary px-4 fw-semibold">
+                            <i class="bi bi-save me-1"></i> {{ 'Actualizar Expediente' if empleado and empleado.get('id') else 'Guardar Empleado' }}
+                        </button>
+                    </div>
+
+                </form>
+
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+    <!-- SCRIPT DE MÁSCARAS INTEGRADO DIRECTAMENTE -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // 1. Cédula Nicaragüense (000-000000-0000X)
+            const inputCedula = document.getElementById('cedula');
+            if (inputCedula) {
+                inputCedula.addEventListener('input', function (e) {
+                    let val = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+                    let numeros = val.replace(/[^0-9]/g, '').substring(0, 13);
+                    let letra = val.replace(/[^A-Z]/g, '').slice(-1);
+                    let formateado = '';
+
+                    if (numeros.length > 0) formateado += numeros.substring(0, 3);
+                    if (numeros.length > 3) formateado += '-' + numeros.substring(3, 9);
+                    if (numeros.length > 9) formateado += '-' + numeros.substring(9, 13);
+                    if (numeros.length === 13 && letra) formateado += letra;
+
+                    e.target.value = formateado;
+                });
+            }
+
+            // 2. Número de INSS (1234567-8)
+            const inputInss = document.getElementById('numero_inss');
+            if (inputInss) {
+                inputInss.addEventListener('input', function (e) {
+                    let val = e.target.value.replace(/[^0-9]/g, '').substring(0, 8);
+                    e.target.value = (val.length > 7) ? val.substring(0, 7) + '-' + val.substring(7, 8) : val;
+                });
+            }
+
+            // 3. Formato de Salario (C$ 14,000.00)
+            const salarioDisplay = document.getElementById('salario_display');
+            const salarioBaseHidden = document.getElementById('salario_base');
+
+            if (salarioDisplay && salarioBaseHidden) {
+                function formatMoneda(valor) {
+                    let num = parseFloat(valor);
+                    return isNaN(num) ? '' : 'C$ ' + num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                }
+
+                if (salarioBaseHidden.value && salarioBaseHidden.value !== '0') {
+                    salarioDisplay.value = formatMoneda(salarioBaseHidden.value);
+                }
+
+                salarioDisplay.addEventListener('focus', function () {
+                    salarioDisplay.value = (salarioBaseHidden.value && salarioBaseHidden.value !== '0') ? salarioBaseHidden.value : '';
+                });
+
+                salarioDisplay.addEventListener('blur', function () {
+                    let rawVal = salarioDisplay.value.replace(/[^0-9.]/g, '');
+                    let num = parseFloat(rawVal);
+                    if (!isNaN(num)) {
+                        salarioBaseHidden.value = num;
+                        salarioDisplay.value = formatMoneda(num);
+                    } else {
+                        salarioBaseHidden.value = '0';
+                        salarioDisplay.value = '';
+                    }
+                });
+
+                salarioDisplay.addEventListener('input', function () {
+                    salarioBaseHidden.value = salarioDisplay.value.replace(/[^0-9.]/g, '') || '0';
+                });
+            }
+        });
+    </script>
+</body>
+</html>
