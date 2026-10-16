@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reporte de Aguinaldo {{ anio_fiscal }} - PlanillaNica</title>
+    <!-- Google Fonts & Bootstrap 5 -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f3f5f7;
+            color: #1f2937;
+            font-family: 'Inter', sans-serif;
+        }
+        .reporte {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 2.5rem;
+            background: #ffffff;
+            border: 1px solid #dbe1e8;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+        .encabezado {
+            border-bottom: 2px solid #16a34a;
+        }
+        .table-custom th {
+            font-size: 8pt;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background-color: #f8fafc;
+            color: #334155;
+            font-weight: 700;
+            padding: 6px 8px;
+        }
+        .table-custom td {
+            font-size: 8.5pt;
+            padding: 6px 8px;
+        }
+        .total-row {
+            background-color: #f0fdf4 !important;
+            font-weight: 700;
+        }
+        .legal-box {
+            background-color: #f8fafc;
+            border-left: 3px solid #16a34a;
+            padding: 8px 12px;
+            font-size: 7.5pt;
+            color: #475569;
+            margin-top: 15px;
+        }
+        @media print {
+            @page {
+                size: letter landscape;
+                margin: 0.8cm;
+            }
+            body {
+                background: #ffffff;
+                font-size: 8.5pt;
+            }
+            .reporte {
+                max-width: 100%;
+                margin: 0;
+                padding: 0;
+                border: 0;
+                box-shadow: none !important;
+            }
+            .encabezado {
+                padding-bottom: 0.5rem !important;
+                margin-bottom: 0.8rem !important;
+            }
+            .table-custom th, .table-custom td {
+                padding: 4px 6px !important;
+                font-size: 8pt;
+            }
+            .no-imprimir {
+                display: none !important;
+            }
+            .signature-block {
+                margin-top: 35px !important;
+                page-break-inside: avoid;
+            }
+            tr {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <main class="reporte">
+
+        <!-- BARRA DE ACCIÓN Y SELECTOR DE AÑO (NO IMPRIMIBLE) -->
+        <div class="no-imprimir mb-4 p-3 bg-light rounded-3 border d-flex justify-content-between align-items-center">
+            <form method="GET" action="{{ url_for('reporte_aguinaldo') }}" class="d-flex align-items-center gap-2">
+                <label class="fw-bold small text-slate-800 me-1">Año Fiscal:</label>
+                <input type="number" name="anio" class="form-control form-control-sm fw-bold" style="width: 100px;" value="{{ anio_fiscal }}" min="2020" max="2035">
+                <button type="submit" class="btn btn-outline-primary btn-sm px-3">
+                    <i class="bi bi-arrow-repeat me-1"></i> Actualizar
+                </button>
+            </form>
+            <div class="d-flex gap-2">
+                <button class="btn btn-primary btn-sm px-3" onclick="window.print()">
+                    <i class="bi bi-printer-fill me-1"></i> Imprimir Reporte
+                </button>
+                <a href="{{ url_for('modulo_aguinaldo', anio=anio_fiscal) }}" class="btn btn-outline-secondary btn-sm px-3">
+                    <i class="bi bi-arrow-left me-1"></i> Volver al Módulo
+                </a>
+                <button class="btn btn-light border btn-sm px-3 text-muted" onclick="window.close()">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+
+        <!-- ENCABEZADO FORMAL DEL REPORTE -->
+        <header class="encabezado d-flex justify-content-between align-items-start pb-3 mb-3">
+            <div>
+                <h1 class="h4 fw-bold mb-1 text-slate-900">PLANILLANICA S.A.</h1>
+                <p class="text-muted small mb-0">RUC: J0310000000000 &nbsp;|&nbsp; Managua, Nicaragua</p>
+                <p class="text-muted small mb-0">Informe Oficial de Liquidación de Aguinaldo (Décimo Tercer Mes)</p>
+            </div>
+            <div class="text-end">
+                <span class="fs-5 fw-bold text-success d-block">Año Fiscal: {{ anio_fiscal }}</span>
+                <small class="text-muted d-block">Período: <b>01/12/{{ anio_fiscal - 1 }} al 30/11/{{ anio_fiscal }}</b> (365 días)</small>
+                <small class="text-muted">Fecha Exigible: <b>1 al 10 de Diciembre de {{ anio_fiscal }}</b></small>
+            </div>
+        </header>
+
+        <!-- TABLA CONSOLIDADA DE AGUINALDO -->
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered align-middle table-custom mb-0">
+                <thead>
+                    <tr>
+                        <th style="width: 30px;">#</th>
+                        <th>Colaborador</th>
+                        <th>Cédula</th>
+                        <th>Salario Base</th>
+                        <th class="text-center">Días Trab.</th>
+                        <th class="text-center">Régimen</th>
+                        <th class="text-end">Total Salario Acumulado</th>
+                        <th class="text-end text-success">Aguinaldo a Pagar</th>
+                        <th>Estado de Pagos de Nómina</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in resultados %}
+                    <tr>
+                        <td class="text-muted text-center">{{ loop.index }}</td>
+                        <td class="fw-bold text-slate-800">{{ r.nombre_empleado }}</td>
+                        <td class="text-muted">{{ r.transacciones_incluidas[0].cedula if r.transacciones_incluidas else 'Cédula Registrada' }}</td>
+                        <td>{{ r.salario_base_mensual | moneda }}</td>
+                        <td class="text-center fw-semibold">{{ r.dias_trabajados }} / {{ r.dias_totales_anio }}</td>
+                        <td class="text-center">
+                            {% if r.es_anio_completo %}
+                                <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" style="font-size: 7pt;">Año Completo</span>
+                            {% else %}
+                                <span class="badge bg-warning-subtle text-warning border border-warning-subtle px-2 py-1" style="font-size: 7pt;">Proporcional</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end fw-semibold text-primary">{{ r.total_salario_acumulado | moneda }}</td>
+                        <td class="text-end fw-bold text-success fs-6">{{ r.aguinaldo_formula_solicitada | moneda }}</td>
+                        <td style="font-size: 7.5pt; max-width: 280px;" class="text-muted lh-sm">{{ r.estado_pagos }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="9" class="text-center text-muted py-4">No se registran datos para este año fiscal.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="total-row">
+                    <tr>
+                        <td colspan="6" class="text-uppercase ps-2">TOTALES CONSOLIDADOS ({{ resultados | length }} Colaboradores):</td>
+                        <td class="text-end fw-bold text-primary">{{ total_acumulado_global | moneda }}</td>
+                        <td class="text-end fw-bold text-success fs-6">{{ total_aguinaldo_global | moneda }}</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <!-- FUNDAMENTO LEGAL NICARAGUA -->
+        <div class="legal-box">
+            <b>Marco Jurídico de la República de Nicaragua (Código del Trabajo - Ley 185, Arts. 93 al 99):</b><br>
+            • <b>Artículo 93:</b> Todo trabajador tiene derecho a un mes de salario adicional después de un año de trabajo continuo, o la parte proporcional al tiempo laborado.<br>
+            • <b>Artículo 96:</b> El décimo tercer mes debe pagarse dentro de los primeros diez días del mes de diciembre de cada año.<br>
+            • <b>Artículo 97:</b> El aguinaldo es inembargable y está totalmente exento de deducciones del INSS Laboral (0%) e Impuesto sobre la Renta IR (0%).
+        </div>
+
+        <!-- BLOQUE DE FIRMAS FORMALES DE AUDITORÍA -->
+        <div class="row pt-5 text-center signature-block">
+            <div class="col-4">
+                <hr style="border-top: 1px solid #1f2937; margin-bottom: 0.4rem;">
+                <p class="mb-0 fw-bold small">Elaborado Por</p>
+                <small class="text-muted" style="font-size: 7.5pt;">Recursos Humanos / Nómina</small>
+            </div>
+            <div class="col-4">
+                <hr style="border-top: 1px solid #1f2937; margin-bottom: 0.4rem;">
+                <p class="mb-0 fw-bold small">Revisado Por</p>
+                <small class="text-muted" style="font-size: 7.5pt;">Contabilidad / Auditoría</small>
+            </div>
+            <div class="col-4">
+                <hr style="border-top: 1px solid #1f2937; margin-bottom: 0.4rem;">
+                <p class="mb-0 fw-bold small">Aprobado / Autorizado</p>
+                <small class="text-muted" style="font-size: 7.5pt;">Gerencia General</small>
+            </div>
+        </div>
+
+    </main>
+
+</body>
+</html>

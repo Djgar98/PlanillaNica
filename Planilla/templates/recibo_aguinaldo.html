@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recibo de Aguinaldo - {{ res.nombre_empleado }} ({{ res.anio_fiscal }})</title>
+    <!-- Google Fonts & Bootstrap 5 -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            color: #1e293b;
+        }
+        .receipt-card {
+            max-width: 800px;
+            margin: 30px auto;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            padding: 40px;
+        }
+        .company-header {
+            border-bottom: 2px solid #0f172a;
+            padding-bottom: 15px;
+            margin-bottom: 25px;
+        }
+        .legal-notice {
+            background-color: #f1f5f9;
+            border-left: 4px solid #059669;
+            padding: 12px 16px;
+            font-size: 0.8rem;
+            color: #334155;
+            border-radius: 0 6px 6px 0;
+            margin: 20px 0;
+        }
+        .signature-line {
+            border-top: 1px solid #94a3b8;
+            margin-top: 50px;
+            padding-top: 8px;
+            text-align: center;
+            font-size: 0.85rem;
+            color: #475569;
+        }
+        @media print {
+            body { background: white; }
+            .receipt-card { border: none; box-shadow: none; margin: 0; padding: 0; max-width: 100%; }
+            .no-print { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container py-4">
+        <!-- BOTONES DE NAVEGACIÓN (NO IMPRIMIBLES) -->
+        <div class="d-flex justify-content-between align-items-center mb-3 no-print" style="max-width: 800px; margin: 0 auto;">
+            <a href="{{ url_for('modulo_aguinaldo', anio=res.anio_fiscal) }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left me-1"></i> Volver al Módulo
+            </a>
+            <button onclick="window.print()" class="btn btn-primary btn-sm px-3 shadow-sm">
+                <i class="bi bi-printer-fill me-1"></i> Imprimir Comprobante
+            </button>
+        </div>
+
+        <div class="receipt-card">
+
+            <!-- CABECERA DE LA EMPRESA -->
+            <div class="company-header d-flex justify-content-between align-items-center">
+                <div>
+                    <h3 class="fw-bold mb-0 text-slate-900">PLANILLANICA S.A.</h3>
+                    <p class="text-muted small mb-0">RUC: J0310000000000 &nbsp;|&nbsp; Managua, Nicaragua</p>
+                    <p class="text-muted small mb-0">Sistema de Gestión y Liquidación de Planilla Laboral</p>
+                </div>
+                <div class="text-end">
+                    <span class="badge bg-success px-3 py-2 fs-6 fw-semibold text-uppercase">
+                        Comprobante de Aguinaldo
+                    </span>
+                    <span class="text-muted small d-block mt-1">Año Fiscal: <b>{{ res.anio_fiscal }}</b></span>
+                </div>
+            </div>
+
+            <!-- DATOS DEL COLABORADOR -->
+            <div class="bg-light p-3 rounded-3 border mb-4">
+                <div class="row g-2">
+                    <div class="col-sm-6">
+                        <span class="text-muted d-block small">Colaborador:</span>
+                        <span class="fw-bold fs-6 text-slate-900">{{ res.nombre_empleado }}</span>
+                    </div>
+                    <div class="col-sm-6 text-sm-end">
+                        <span class="text-muted d-block small">Cédula de Identidad:</span>
+                        <span class="fw-semibold text-slate-800">{{ empleado.cedula if empleado else 'N/A' }}</span>
+                    </div>
+                    <div class="col-sm-6 mt-2">
+                        <span class="text-muted d-block small">Cargo / Puesto:</span>
+                        <span class="fw-medium text-slate-700">{{ empleado.cargo if empleado else 'Personal' }}</span>
+                    </div>
+                    <div class="col-sm-6 text-sm-end mt-2">
+                        <span class="text-muted d-block small">Número INSS:</span>
+                        <span class="fw-medium text-slate-700">{{ empleado.numero_inss if (empleado and empleado.numero_inss) else 'N/A' }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DETALLE DE BASES DE CÁLCULO -->
+            <h6 class="fw-bold text-slate-800 border-bottom pb-2 mb-3">
+                <i class="bi bi-calculator text-primary me-2"></i> Determinación del Décimo Tercer Mes (Art. 93 - 95 Ley 185)
+            </h6>
+
+            <table class="table table-bordered mb-4">
+                <tbody>
+                    <tr>
+                        <th class="bg-light text-slate-700 w-50">Período Fiscal Computado:</th>
+                        <td>{{ res.fecha_inicio_periodo }} al {{ res.fecha_fin_periodo }} ({{ res.dias_totales_anio }} días)</td>
+                    </tr>
+                    <tr>
+                        <th class="bg-light text-slate-700">Días Laborados en el Ciclo:</th>
+                        <td>
+                            <b>{{ res.dias_trabajados }} días</b> 
+                            {% if res.es_anio_completo %}
+                                <span class="badge bg-success-subtle text-success ms-2">Año Completo</span>
+                            {% else %}
+                                <span class="badge bg-warning-subtle text-warning ms-2">Proporcional</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th class="bg-light text-slate-700">Salario Mensual Ordinario Pactado:</th>
+                        <td class="fw-semibold">{{ res.salario_base_mensual | moneda }}</td>
+                    </tr>
+                    <tr>
+                        <th class="bg-light text-slate-700">Total Salarios Acumulados Registrados:</th>
+                        <td class="fw-bold text-primary">{{ res.total_salario_acumulado | moneda }}</td>
+                    </tr>
+                    <tr>
+                        <th class="bg-light text-slate-700">Fórmula de Cálculo Aplicada:</th>
+                        <td>
+                            <code>(TotalSalarioDevengado / {{ res.dias_totales_anio }}) * {{ res.dias_trabajados }} días</code>
+                        </td>
+                    </tr>
+                    <tr class="table-success">
+                        <th class="fs-5 text-slate-900">Total Neto de Aguinaldo a Pagar:</th>
+                        <td class="fs-4 fw-bold text-success">{{ res.aguinaldo_formula_solicitada | moneda }}</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <!-- FUNDAMENTO LEGAL NICARAGUA -->
+            <div class="legal-notice">
+                <p class="mb-1 fw-bold text-success"><i class="bi bi-shield-check me-1"></i> Disposiciones del Código del Trabajo de Nicaragua (Ley 185):</p>
+                <ul class="mb-0 ps-3">
+                    <li><b>Artículo 96:</b> El pago del décimo tercer mes es exigible en los primeros diez días del mes de diciembre.</li>
+                    <li><b>Artículo 97:</b> El décimo tercer mes es inembargable y está exento de todo impuesto, retención IR (0%) y cuotas del Seguro Social INSS (0%).</li>
+                </ul>
+            </div>
+
+            <!-- ESTADO ACTUAL DE PAGOS -->
+            <div class="p-3 bg-light rounded-2 border mb-4">
+                <small class="text-muted d-block">Estado de pagos de nómina al cierre:</small>
+                <span class="small fw-medium text-slate-800">{{ res.estado_pagos }}</span>
+            </div>
+
+            <!-- FIRMAS DE CONFORMIDAD -->
+            <div class="row pt-4 text-center">
+                <div class="col-4">
+                    <div class="signature-line">
+                        <b>Elaborado Por</b><br>
+                        <small>Recursos Humanos / Nómina</small>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="signature-line">
+                        <b>Autorizado Por</b><br>
+                        <small>Gerencia / Contabilidad</small>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="signature-line">
+                        <b>Recibí Conforme</b><br>
+                        <small>Firma del Trabajador</small>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</body>
+</html>

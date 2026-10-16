@@ -10,7 +10,13 @@ from pathlib import Path
 from flask import Flask, abort, flash, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from database import calcular_planilla_completa, get_db, init_db, obtener_empleados_con_ultimo_pago, obtener_historial_empleado, obtener_planillas_por_mes, registrar_movimiento
+from database import (
+    calcular_planilla_completa, get_db, init_db, obtener_empleados_con_ultimo_pago,
+    obtener_historial_empleado, obtener_planillas_por_mes, registrar_movimiento,
+    obtener_todos_periodos_planilla, obtener_periodo_con_transacciones, obtener_todos_empleados,
+    obtener_transacciones_abonos_por_mes
+)
+from payroll_module import GestorPlanillaDiferida, CalcularAguinaldo, a_decimal
 
 CEDULA_RE = re.compile(r"^\d{3}-\d{6}-\d{4}[A-Za-z]$")
 INSS_RE = re.compile(r"^\d{7}-\d$")
@@ -223,15 +229,28 @@ def reporte_planilla_mensual():
             raise ValueError
     except ValueError:
         abort(400, "El mes debe tener el formato YYYY-MM.")
+
     planillas = obtener_planillas_por_mes(mes)
+    transacciones_abonos = obtener_transacciones_abonos_por_mes(mes)
+
     totales = {
         "salario_bruto": sum(p["salario_bruto"] for p in planillas),
         "inss_laboral": sum(p["inss_laboral"] for p in planillas),
         "ir_laboral": sum(p["ir_laboral"] for p in planillas),
         "inss_patronal": sum(p["inss_patronal"] for p in planillas),
         "salario_neto": sum(p["salario_neto"] for p in planillas),
+        "total_pagado": sum(p["total_pagado"] for p in planillas),
+        "saldo_pendiente": sum(p["saldo_pendiente"] for p in planillas),
+        "total_abonos_mes": sum(t["monto"] for t in transacciones_abonos),
     }
-    return render_template("reporte_planilla_mensual.html", mes=mes, planillas=planillas, totales=totales)
+
+    return render_template(
+        "reporte_planilla_mensual.html",
+        mes=mes,
+        planillas=planillas,
+        transacciones_abonos=transacciones_abonos,
+        totales=totales
+    )
 
 
 @app.route("/empleado/nuevo", methods=["GET", "POST"])
@@ -374,6 +393,204 @@ def agregar_planilla(empleado_id):
         flash("Pago de planilla registrado exitosamente.", "success")
         return redirect(url_for("index"))
     return render_template("form_planilla.html", empleado=empleado, valores=None)
+
+
+# =====================================================================
+# RUTAS DE PAGOS DIFERIDOS Y CÁLCULO DE AGUINALDO
+# =====================================================================
+
+@app.route("/planilla/pagos-diferidos")
+@requiere_rol("admin", "rrhh")
+def pagos_diferidos():
+    empleado_id = request.args.get("empleado_id", type=int)
+    estado = request.args.get("estado", "").strip() or None
+    periodos = obtener_todos_periodos_planilla(empleado_id=empleado_id, estado=estado)
+    empleados = obtener_todos_empleados()
+
+    total_periodos = len(periodos)
+    total_completados = sum(1 for p in periodos if p["estado"] == "pagado_completo")
+    total_parciales = sum(1 for p in periodos if p["estado"] == "pago_parcial")
+    saldo_pendiente_total = sum(p["saldo_pendiente"] for p in periodos)
+
+    return render_template(
+        "pagos_diferidos.html",
+        periodos=periodos,
+        empleados=empleados,
+        total_periodos=total_periodos,
+        total_completados=total_completados,
+        total_parciales=total_parciales,
+        saldo_pendiente_total=saldo_pendiente_total,
+    )
+
+
+@app.route("/planilla/pagos-diferidos/nuevo", methods=["GET", "POST"])
+@requiere_rol("admin", "rrhh")
+def nuevo_periodo_planilla():
+    empleados = obtener_todos_empleados()
+    hoy = date.today()
+    if request.method == "POST":
+        try:
+            emp_id = int(request.form.get("empleado_id"))
+            anio = int(request.form.get("anio"))
+            mes = int(request.form.get("mes"))
+            salario_base_manual = request.form.get("salario_base")
+            sal_dec = a_decimal(salario_base_manual) if salario_base_manual else None
+
+            gestor = GestorPlanillaDiferida()
+            periodo = gestor.obtener_o_crear_periodo(
+                empleado_id=emp_id,
+                anio=anio,
+                mes=mes,
+                salario_base_manual=sal_dec
+            )
+            flash(f"Período '{periodo.descripcion}' habilitado exitosamente.", "success")
+            return redirect(url_for("pagos_diferidos"))
+        except (ValueError, TypeError) as ex:
+            flash(str(ex), "danger")
+        except sqlite3.IntegrityError:
+            flash("Ya existe un período registrado para este colaborador en ese año y mes.", "warning")
+
+    return render_template(
+        "form_nuevo_periodo.html",
+        empleados=empleados,
+        anio_actual=hoy.year,
+        mes_actual=hoy.month
+    )
+
+
+@app.route("/planilla/pagos-diferidos/<int:periodo_id>/abono", methods=["GET", "POST"])
+@requiere_rol("admin", "rrhh")
+def registrar_abono(periodo_id):
+    periodo, transacciones = obtener_periodo_con_transacciones(periodo_id)
+    if not periodo:
+        abort(404, "Período de planilla no encontrado.")
+
+    if periodo["estado"] == "pagado_completo":
+        flash("Este período ya se encuentra pagado al 100%. No admite más abonos.", "info")
+        return redirect(url_for("detalle_periodo", periodo_id=periodo_id))
+
+    hoy_str = date.today().isoformat()
+
+    if request.method == "POST":
+        try:
+            monto = request.form.get("monto")
+            fecha_pago = request.form.get("fecha_pago", "").strip() or hoy_str
+            concepto = request.form.get("concepto", "").strip() or "Abono de salario"
+            metodo_pago = request.form.get("metodo_pago", "Transferencia").strip()
+            referencia = request.form.get("referencia", "").strip()
+            notas = request.form.get("notas", "").strip()
+            validar_mes_ant = request.form.get("validar_mes_anterior") == "1"
+
+            usuario_id = session.get("usuario_id")
+            usuario_nombre = session.get("usuario", "Admin")
+
+            gestor = GestorPlanillaDiferida()
+            tx = gestor.registrar_pago_diferido(
+                empleado_id=periodo["empleado_id"],
+                periodo_planilla_id=periodo_id,
+                monto=a_decimal(monto),
+                fecha_pago=fecha_pago,
+                concepto=concepto,
+                metodo_pago=metodo_pago,
+                referencia=referencia,
+                notas=notas,
+                usuario_id=usuario_id,
+                registrado_por=usuario_nombre,
+                validar_mes_anterior=validar_mes_ant
+            )
+            flash(f"Abono por C$ {tx.monto:,.2f} registrado exitosamente. (Ref: {tx.referencia or 'S/R'})", "success")
+            return redirect(url_for("detalle_periodo", periodo_id=periodo_id))
+        except ValueError as ex:
+            flash(str(ex), "danger")
+        except Exception as ex:
+            flash(f"Error al registrar la transacción: {ex}", "danger")
+
+    return render_template(
+        "form_abono.html",
+        periodo=periodo,
+        fecha_hoy=hoy_str
+    )
+
+
+@app.route("/planilla/pagos-diferidos/<int:periodo_id>/detalle")
+@requiere_rol("admin", "rrhh")
+def detalle_periodo(periodo_id):
+    periodo, transacciones = obtener_periodo_con_transacciones(periodo_id)
+    if not periodo:
+        abort(404, "Período de planilla no encontrado.")
+    return render_template("detalle_periodo.html", periodo=periodo, transacciones=transacciones)
+
+
+@app.route("/planilla/aguinaldo")
+@requiere_rol("admin", "rrhh")
+def modulo_aguinaldo():
+    anio_fiscal = request.args.get("anio", type=int) or date.today().year
+    empleados = obtener_todos_empleados()
+    gestor = GestorPlanillaDiferida()
+
+    resultados = []
+    total_acumulado_global = 0.0
+    total_aguinaldo_global = 0.0
+
+    for emp in empleados:
+        try:
+            res = gestor.CalcularAguinaldo(idEmpleado=emp["id"], añoActual=anio_fiscal)
+            resultados.append(res)
+            total_acumulado_global += float(res.total_salario_acumulado)
+            total_aguinaldo_global += float(res.aguinaldo_formula_solicitada)
+        except Exception:
+            continue
+
+    return render_template(
+        "aguinaldo.html",
+        anio_fiscal=anio_fiscal,
+        resultados=resultados,
+        total_acumulado_global=total_acumulado_global,
+        total_aguinaldo_global=total_aguinaldo_global,
+    )
+
+
+@app.route("/reportes/aguinaldo")
+@requiere_rol("admin", "rrhh")
+def reporte_aguinaldo():
+    """Genera el reporte oficial e imprimible del Décimo Tercer Mes (Ley 185)."""
+    anio_fiscal = request.args.get("anio", type=int) or date.today().year
+    empleados = obtener_todos_empleados()
+    gestor = GestorPlanillaDiferida()
+
+    resultados = []
+    total_acumulado_global = 0.0
+    total_aguinaldo_global = 0.0
+
+    for emp in empleados:
+        try:
+            res = gestor.CalcularAguinaldo(idEmpleado=emp["id"], añoActual=anio_fiscal)
+            resultados.append(res)
+            total_acumulado_global += float(res.total_salario_acumulado)
+            total_aguinaldo_global += float(res.aguinaldo_formula_solicitada)
+        except Exception:
+            continue
+
+    return render_template(
+        "reporte_aguinaldo.html",
+        anio_fiscal=anio_fiscal,
+        resultados=resultados,
+        total_acumulado_global=total_acumulado_global,
+        total_aguinaldo_global=total_aguinaldo_global,
+    )
+
+
+@app.route("/planilla/aguinaldo/<int:empleado_id>/<int:anio>/recibo")
+@requiere_rol("admin", "rrhh")
+def recibo_aguinaldo(empleado_id, anio):
+    gestor = GestorPlanillaDiferida()
+    with get_db() as conn:
+        empleado = conn.execute("SELECT * FROM empleados WHERE id = ?", (empleado_id,)).fetchone()
+    if not empleado:
+        abort(404, "Empleado no encontrado.")
+
+    res = gestor.CalcularAguinaldo(idEmpleado=empleado_id, añoActual=anio)
+    return render_template("recibo_aguinaldo.html", res=res, empleado=empleado)
 
 
 @app.route("/inventario")

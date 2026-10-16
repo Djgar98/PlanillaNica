@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cálculo de Aguinaldo (Ley 185) - PlanillaNica</title>
+    <!-- Google Fonts & Bootstrap Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        @media print {
+            nav, .navbar, .no-print, .btn, form { display: none !important; }
+            body { background: white !important; font-size: 8.5pt !important; }
+            .container { max-width: 100% !important; padding: 0 !important; }
+            .card { border: none !important; box-shadow: none !important; }
+            .table-responsive { overflow: visible !important; }
+            @page { size: letter landscape; margin: 0.8cm; }
+        }
+    </style>
+</head>
+<body class="bg-light">
+
+    {% include '_nav.html' %}
+
+    <div class="container pb-5">
+
+        <!-- CABECERA -->
+        <div class="row align-items-center mb-4">
+            <div class="col-md-7">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="badge bg-success-subtle text-success fw-bold px-2 py-1">
+                        <i class="bi bi-gift-fill me-1"></i> Décimo Tercer Mes
+                    </span>
+                    <span class="text-muted small">Código del Trabajo de Nicaragua (Ley 185, Arts. 93-99)</span>
+                </div>
+                <h3 class="fw-bold text-slate-900 mb-1">Módulo de Cálculo de Aguinaldo</h3>
+                <p class="text-muted small mb-0">Determinación automatizada con base en salarios acumulados, días trabajados y pagos parciales registrados.</p>
+            </div>
+            <div class="col-md-5 text-md-end mt-3 mt-md-0 d-flex gap-2 justify-content-md-end">
+                <a href="{{ url_for('pagos_diferidos') }}" class="btn btn-outline-primary btn-sm px-3 py-2 fw-medium shadow-sm">
+                    <i class="bi bi-wallet2 me-1"></i> Control de Abonos
+                </a>
+                <a href="{{ url_for('reporte_aguinaldo', anio=anio_fiscal) }}" target="_blank" class="btn btn-primary btn-sm px-3 py-2 fw-semibold shadow-sm">
+                    <i class="bi bi-file-earmark-bar-graph me-1"></i> Generar Reporte Imprimible
+                </a>
+            </div>
+        </div>
+
+        <!-- TARJETAS DE RESUMEN DEL CICLO FISCAL -->
+        <div class="row g-3 mb-4">
+            <div class="col-sm-6 col-lg-3">
+                <div class="card border-0 shadow-sm bg-white rounded-3 h-100">
+                    <div class="card-body p-3">
+                        <span class="text-muted small d-block">Ciclo Fiscal Evaluado</span>
+                        <span class="fs-5 fw-bold text-primary">Año {{ anio_fiscal }}</span>
+                        <small class="text-muted d-block mt-1">01/12/{{ anio_fiscal - 1 }} al 30/11/{{ anio_fiscal }}</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-3">
+                <div class="card border-0 shadow-sm bg-white rounded-3 h-100">
+                    <div class="card-body p-3">
+                        <span class="text-muted small d-block">Total Salarios Acumulados</span>
+                        <span class="fs-5 fw-bold text-slate-800">{{ total_acumulado_global | moneda }}</span>
+                        <small class="text-muted d-block mt-1">Suma de pagos registrados</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-3">
+                <div class="card border-0 shadow-sm bg-white rounded-3 h-100">
+                    <div class="card-body p-3">
+                        <span class="text-muted small d-block">Total Aguinaldo a Liquidar</span>
+                        <span class="fs-5 fw-bold text-success">{{ total_aguinaldo_global | moneda }}</span>
+                        <small class="text-muted d-block mt-1">Fórmula proporcional de nómina</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-3">
+                <div class="card border-0 shadow-sm bg-white rounded-3 h-100">
+                    <div class="card-body p-3">
+                        <span class="text-muted small d-block">Exigibilidad Legal (Art. 96)</span>
+                        <span class="fs-6 fw-bold text-danger">1 al 10 de Diciembre</span>
+                        <small class="text-muted d-block mt-1">Exento de INSS e IR (Art. 97)</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- BARRA DE SELECCIÓN DE AÑO FISCAL -->
+        <div class="card border-0 shadow-sm bg-white rounded-3 mb-4">
+            <div class="card-body p-3">
+                <form method="GET" class="row g-2 align-items-center">
+                    <div class="col-12 col-md-auto fw-semibold text-slate-700 me-2">
+                        <i class="bi bi-calendar3 text-muted me-1"></i> Seleccionar Año Fiscal:
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <input type="number" name="anio" class="form-control form-control-sm fw-bold" value="{{ anio_fiscal }}" min="2020" max="2035" required>
+                    </div>
+                    <div class="col-6 col-md-auto">
+                        <button type="submit" class="btn btn-primary btn-sm px-3">
+                            <i class="bi bi-arrow-repeat me-1"></i> Recalcular Año
+                        </button>
+                    </div>
+                    <div class="col-12 col-md-auto ms-auto text-muted small">
+                        <i class="bi bi-info-circle me-1"></i> Período legal: <b>01 de diciembre de {{ anio_fiscal - 1 }} al 30 de noviembre de {{ anio_fiscal }}</b> (365 días).
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- TABLA PRINCIPAL DE INFORME DE AGUINALDO -->
+        <div class="card border-0 shadow-sm bg-white rounded-3 overflow-hidden mb-4">
+            <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+                <h6 class="fw-bold mb-0 text-slate-800">
+                    <i class="bi bi-table text-primary me-2"></i> Informe Consolidado de Aguinaldo (Décimo Tercer Mes)
+                </h6>
+                <span class="badge bg-light text-muted border">{{ resultados | length }} Colaboradores Evaluados</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light text-slate-700 small text-uppercase">
+                        <tr>
+                            <th class="ps-4">Nombre del Empleado</th>
+                            <th>Salario Base</th>
+                            <th>Días Totales Año Fiscal</th>
+                            <th>Total Salario Acumulado</th>
+                            <th>Aguinaldo Calculado a Pagar</th>
+                            <th>Comparativo Ley 185 (1/12)</th>
+                            <th>Estado de sus Pagos</th>
+                            <th class="text-end pe-4">Recibo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in resultados %}
+                        <tr>
+                            <!-- Nombre -->
+                            <td class="ps-4">
+                                <span class="fw-bold text-slate-800 d-block">{{ r.nombre_empleado }}</span>
+                                <small class="text-muted"><i class="bi bi-person-badge me-1"></i>ID: #{{ r.empleado_id }}</small>
+                            </td>
+
+                            <!-- Salario Base -->
+                            <td class="fw-semibold text-slate-700">
+                                {{ r.salario_base_mensual | moneda }}
+                            </td>
+
+                            <!-- Días Totales Trabajados en el Año Fiscal -->
+                            <td>
+                                <span class="fw-bold text-slate-800">{{ r.dias_trabajados }}</span>
+                                <small class="text-muted">/ {{ r.dias_totales_anio }} días</small>
+                                {% if r.es_anio_completo %}
+                                    <span class="badge bg-success-subtle text-success d-block mt-1" style="font-size: 0.68rem; width: fit-content;">Año Completo</span>
+                                {% else %}
+                                    <span class="badge bg-warning-subtle text-warning d-block mt-1" style="font-size: 0.68rem; width: fit-content;">Proporcional</span>
+                                {% endif %}
+                            </td>
+
+                            <!-- Total Salario Acumulado -->
+                            <td class="fw-semibold text-primary">
+                                {{ r.total_salario_acumulado | moneda }}
+                                <small class="text-muted d-block" style="font-size: 0.72rem;">{{ r.transacciones_incluidas | length }} desembolsos</small>
+                            </td>
+
+                            <!-- Aguinaldo Calculado a Pagar (Fórmula solicitada) -->
+                            <td class="fw-bold text-success fs-6">
+                                {{ r.aguinaldo_formula_solicitada | moneda }}
+                                <small class="text-muted d-block fw-normal" style="font-size: 0.70rem;">
+                                    (Acum / 365) * {{ r.dias_trabajados }} d
+                                </small>
+                            </td>
+
+                            <!-- Comparativo Ley 185 -->
+                            <td class="text-slate-600 small">
+                                <span class="fw-semibold">{{ r.aguinaldo_ley_185_acumulado | moneda }}</span>
+                                <small class="text-muted d-block" style="font-size: 0.70rem;">(Total / 12)</small>
+                            </td>
+
+                            <!-- Estado de sus Pagos -->
+                            <td style="max-width: 280px;">
+                                <span class="small text-slate-700 d-block lh-sm">{{ r.estado_pagos }}</span>
+                            </td>
+
+                            <!-- Botón Recibo -->
+                            <td class="text-end pe-4">
+                                <a href="{{ url_for('recibo_aguinaldo', empleado_id=r.empleado_id, anio=r.anio_fiscal) }}" 
+                                   target="_blank" 
+                                   class="btn btn-outline-secondary btn-sm" 
+                                   title="Ver Recibo Imprimible">
+                                    <i class="bi bi-printer me-1"></i> Recibo
+                                </a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center py-5 text-muted">
+                                <i class="bi bi-people display-4 text-slate-300 d-block mb-3"></i>
+                                No se encontraron registros de colaboradores para este ciclo fiscal.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="table-light">
+                        <tr>
+                            <th colspan="3" class="ps-4 fw-bold text-slate-800">Totales Globales del Período:</th>
+                            <th class="fw-bold text-primary">{{ total_acumulado_global | moneda }}</th>
+                            <th class="fw-bold text-success fs-6">{{ total_aguinaldo_global | moneda }}</th>
+                            <th colspan="3"></th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <!-- NOTA LEGAL NORMATIVA NICARAGUA -->
+        <div class="card border-0 bg-white shadow-sm rounded-3">
+            <div class="card-body p-4">
+                <h6 class="fw-bold text-slate-800 mb-2">
+                    <i class="bi bi-file-earmark-ruled-fill text-success me-2"></i> Fundamentos de Ley Laboral de Nicaragua (Ley 185 - Código del Trabajo):
+                </h6>
+                <div class="row g-3 small text-muted">
+                    <div class="col-md-4">
+                        <b class="text-slate-700 d-block mb-1">Art. 93 - Derecho al Décimo Tercer Mes:</b>
+                        Todo trabajador tiene derecho a que su empleador le pague un mes de salario adicional después de un año de trabajo continuo, o la parte proporcional al tiempo laborado si es menor a un año.
+                    </div>
+                    <div class="col-md-4">
+                        <b class="text-slate-700 d-block mb-1">Art. 96 - Plazo Exigible de Pago:</b>
+                        El aguinaldo debe pagarse dentro de los <b>primeros diez días de diciembre</b> de cada año, o dentro de los diez días posteriores a la terminación laboral.
+                    </div>
+                    <div class="col-md-4">
+                        <b class="text-slate-700 d-block mb-1">Art. 97 - Exención Impositiva Absoluta:</b>
+                        El aguinaldo es <b>inembargable</b> (salvo pensión de alimentos) y está <b>totalmente exento del INSS laboral, IR y retenciones patronales</b>.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

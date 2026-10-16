@@ -3,55 +3,356 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reporte mensual {{ mes }} - PlanillaNica</title>
+    <title>Reporte Mensual de Nómina y Pagos - {{ mes }} - PlanillaNica</title>
+    <!-- Google Fonts & Bootstrap 5 -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <style>
-        body { background: #f3f5f7; color: #1f2937; }
-        .reporte { max-width: 1100px; margin: 2rem auto; padding: 2rem; background: #fff; border: 1px solid #dbe1e8; }
-        .encabezado { border-bottom: 2px solid #1d4ed8; }
-        .total { background: #eff6ff; }
+        body {
+            background-color: #f8fafc;
+            color: #1e293b;
+            font-family: 'Inter', sans-serif;
+        }
+        .reporte {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 2.5rem;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+        .encabezado {
+            border-bottom: 2px solid #2563eb;
+        }
+        .table-custom th {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background-color: #f1f5f9;
+            color: #334155;
+            font-weight: 600;
+        }
+        .table-custom td {
+            font-size: 0.85rem;
+        }
+        .total-row {
+            background-color: #f8fafc !important;
+            font-weight: 700;
+        }
+        .badge-parcial {
+            background-color: #fef3c7;
+            color: #92400e;
+            border: 1px solid #fde68a;
+        }
+        .badge-completo {
+            background-color: #dcfce7;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+        }
+        .badge-pendiente {
+            background-color: #f1f5f9;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+        .kpi-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 12px 16px;
+            background-color: #ffffff;
+        }
         @media print {
-            @page { size: letter landscape; margin: .8cm; }
-            body { background: #fff; font-size: 9pt; }
-            .reporte { max-width: 26.3cm; margin: 0 auto; padding: 0; border: 0; box-shadow: none !important; }
-            .encabezado { padding-bottom: .5rem !important; margin-bottom: .8rem !important; }
-            .table { font-size: 8.5pt; margin-bottom: 0; }
-            .table > :not(caption) > * > * { padding: .3rem .4rem; }
-            thead { display: table-header-group; } tfoot { display: table-footer-group; }
-            tr { break-inside: avoid; page-break-inside: avoid; }
-            .no-imprimir { display: none !important; }
+            @page {
+                size: letter landscape;
+                margin: 0.6cm;
+            }
+            body {
+                background: #ffffff;
+                font-size: 8.5pt;
+            }
+            .reporte {
+                max-width: 100%;
+                margin: 0;
+                padding: 0;
+                border: 0;
+                box-shadow: none !important;
+            }
+            .table-custom th, .table-custom td {
+                padding: 4px 6px !important;
+                font-size: 8pt;
+            }
+            .no-imprimir {
+                display: none !important;
+            }
+            .encabezado {
+                padding-bottom: 0.5rem !important;
+                margin-bottom: 0.8rem !important;
+            }
+            .signature-block {
+                margin-top: 35px !important;
+            }
         }
     </style>
 </head>
 <body>
+
     <main class="reporte shadow-sm">
-        <header class="encabezado d-flex justify-content-between align-items-start pb-3 mb-4">
-            <div><h1 class="h4 mb-1">PlanillaNica</h1><p class="text-muted mb-0">Reporte general de pagos mensuales</p></div>
-            <div class="text-end"><strong>Período: {{ mes }}</strong><br><small class="text-muted">{{ planillas | length }} pago(s) registrado(s)</small></div>
-        </header>
-        <div class="table-responsive">
-            <table class="table table-sm table-bordered align-middle">
-                <thead class="table-light"><tr><th>Fecha</th><th>Colaborador</th><th>Cédula</th><th>Cargo</th><th>Bruto</th><th>INSS laboral</th><th>IR</th><th>INSS patronal</th><th class="text-end">Neto</th></tr></thead>
-                <tbody>
-                    {% for p in planillas %}
-                    <tr><td>{{ p.fecha }}</td><td>{{ p.nombre }}</td><td>{{ p.cedula }}</td><td>{{ p.cargo }}</td><td>{{ p.salario_bruto | moneda }}</td><td>-{{ p.inss_laboral | moneda }}</td><td>-{{ p.ir_laboral | moneda }}</td><td>{{ p.inss_patronal | moneda }}</td><td class="text-end fw-semibold">{{ p.salario_neto | moneda }}</td></tr>
-                    {% else %}
-                    <tr><td colspan="9" class="text-center text-muted py-4">No hay pagos registrados para este mes.</td></tr>
-                    {% endfor %}
-                </tbody>
-                <tfoot class="total fw-bold"><tr><td colspan="4">TOTALES</td><td>{{ totales.salario_bruto | moneda }}</td><td>-{{ totales.inss_laboral | moneda }}</td><td>-{{ totales.ir_laboral | moneda }}</td><td>{{ totales.inss_patronal | moneda }}</td><td class="text-end text-success">{{ totales.salario_neto | moneda }}</td></tr></tfoot>
-            </table>
-        </div>
-        
-        <!-- Bloque de Firma del Responsable -->
-        <div class="row mt-5 pt-5 text-center">
-            <div class="col-6 offset-3">
-                <hr style="border-top: 1px solid #1f2937; margin-bottom: 0.5rem;">
-                <p class="mb-0 fw-bold">Firma del Responsable</p>
-                <small class="text-muted">Aprobado / Autorizado</small>
+
+        <!-- SELECTOR DE MES Y BOTONES DE NAVEGACIÓN (NO IMPRIMIBLES) -->
+        <div class="no-imprimir mb-4 p-3 bg-light rounded-3 border">
+            <div class="row g-2 align-items-center">
+                <div class="col-md-auto fw-bold text-slate-800">
+                    <i class="bi bi-calendar3 text-primary me-1"></i> Consultar Mes:
+                </div>
+                <div class="col-md-3">
+                    <form method="GET" action="{{ url_for('reporte_planilla_mensual') }}" class="d-flex gap-2">
+                        <input type="month" name="mes" class="form-control form-control-sm fw-semibold" value="{{ mes }}" onchange="this.form.submit()">
+                        <button type="submit" class="btn btn-primary btn-sm px-3">
+                            <i class="bi bi-arrow-repeat"></i>
+                        </button>
+                    </form>
+                </div>
+                <div class="col-md-auto ms-md-auto d-flex gap-2">
+                    <button class="btn btn-primary btn-sm px-3 shadow-sm" onclick="window.print()">
+                        <i class="bi bi-printer-fill me-1"></i> Imprimir Reporte
+                    </button>
+                    <a href="{{ url_for('pagos_diferidos') }}" class="btn btn-outline-secondary btn-sm px-3">
+                        <i class="bi bi-wallet2 me-1"></i> Pagos Diferidos
+                    </a>
+                    <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm px-3">
+                        <i class="bi bi-house-door me-1"></i> Inicio
+                    </a>
+                </div>
             </div>
         </div>
-        <div class="no-imprimir mt-4 d-flex gap-2"><button class="btn btn-primary" onclick="window.print()">Imprimir reporte</button><button class="btn btn-outline-secondary" onclick="window.close()">Cerrar</button></div>
+
+        <!-- ENCABEZADO FORMAL DE LA EMPRESA -->
+        <header class="encabezado d-flex justify-content-between align-items-start pb-3 mb-4">
+            <div>
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <h1 class="h3 fw-bold mb-0 text-slate-900">PLANILLANICA S.A.</h1>
+                    <span class="badge bg-primary px-2 py-1 small">Nómina Legal</span>
+                </div>
+                <p class="text-muted small mb-0">RUC: J0310000000000 &nbsp;|&nbsp; Managua, Nicaragua</p>
+                <p class="text-muted small mb-0">Reporte General de Nómina Mensual y Control de Pagos Parciales</p>
+            </div>
+            <div class="text-end">
+                <span class="fs-5 fw-bold text-slate-800 d-block">Período: {{ mes }}</span>
+                <span class="badge bg-light text-muted border px-2 py-1 small">
+                    {{ planillas | length }} Colaborador(es) &nbsp;|&nbsp; {{ transacciones_abonos | length }} Abono(s)
+                </span>
+            </div>
+        </header>
+
+        <!-- KPI RESUMEN DEL MES -->
+        <div class="row g-2 mb-4">
+            <div class="col-6 col-md-3">
+                <div class="kpi-card shadow-xs">
+                    <span class="text-muted small d-block" style="font-size: 0.72rem;">Salario Bruto Total</span>
+                    <span class="fw-bold text-slate-800 fs-6">{{ totales.salario_bruto | moneda }}</span>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="kpi-card shadow-xs">
+                    <span class="text-muted small d-block" style="font-size: 0.72rem;">Salario Neto a Liquidar</span>
+                    <span class="fw-bold text-primary fs-6">{{ totales.salario_neto | moneda }}</span>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="kpi-card shadow-xs border-success-subtle bg-success bg-opacity-10">
+                    <span class="text-success small d-block fw-semibold" style="font-size: 0.72rem;">
+                        <i class="bi bi-check-circle-fill me-1"></i> Desembolsado / Pagado
+                    </span>
+                    <span class="fw-bold text-success fs-6">{{ totales.total_pagado | moneda }}</span>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="kpi-card shadow-xs border-danger-subtle bg-danger bg-opacity-10">
+                    <span class="text-danger small d-block fw-semibold" style="font-size: 0.72rem;">
+                        <i class="bi bi-clock-history me-1"></i> Saldo Pendiente
+                    </span>
+                    <span class="fw-bold text-danger fs-6">{{ totales.saldo_pendiente | moneda }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECCIÓN 1: PLANILLA Y LIQUIDACIÓN POR COLABORADOR -->
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="fw-bold text-slate-800 mb-0">
+                <i class="bi bi-person-lines-fill text-primary me-2"></i> 1. Planilla y Liquidación del Período ({{ mes }})
+            </h6>
+            <small class="text-muted">Ley Laboral de Nicaragua (INSS 7%, IR Progresivo, INSS Patronal)</small>
+        </div>
+
+        <div class="table-responsive mb-4">
+            <table class="table table-sm table-bordered align-middle table-custom mb-0">
+                <thead>
+                    <tr>
+                        <th class="ps-2">Fecha / Ciclo</th>
+                        <th>Colaborador</th>
+                        <th>Cédula</th>
+                        <th>Cargo</th>
+                        <th class="text-end">Salario Bruto</th>
+                        <th class="text-end text-danger">INSS Lab (7%)</th>
+                        <th class="text-end text-danger">IR Laboral</th>
+                        <th class="text-end text-secondary">INSS Pat.</th>
+                        <th class="text-end">Neto a Liquidar</th>
+                        <th class="text-end text-success">Total Abonado</th>
+                        <th class="text-end text-danger">Saldo Pendiente</th>
+                        <th class="text-center">Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in planillas %}
+                    <tr>
+                        <td class="ps-2 small text-muted">{{ p.fecha }}</td>
+                        <td class="fw-semibold text-slate-800">{{ p.nombre }}</td>
+                        <td class="small text-muted">{{ p.cedula }}</td>
+                        <td class="small">{{ p.cargo }}</td>
+                        <td class="text-end">{{ p.salario_bruto | moneda }}</td>
+                        <td class="text-end text-danger">-{{ p.inss_laboral | moneda }}</td>
+                        <td class="text-end text-danger">-{{ p.ir_laboral | moneda }}</td>
+                        <td class="text-end text-secondary">{{ p.inss_patronal | moneda }}</td>
+                        <td class="text-end fw-bold text-slate-800">{{ p.salario_neto | moneda }}</td>
+                        
+                        <!-- Monto Abonado / Pagado -->
+                        <td class="text-end fw-bold text-success">
+                            {{ p.total_pagado | moneda }}
+                        </td>
+
+                        <!-- Saldo Pendiente -->
+                        <td class="text-end fw-bold">
+                            {% if p.saldo_pendiente > 0 %}
+                                <span class="text-danger">{{ p.saldo_pendiente | moneda }}</span>
+                            {% else %}
+                                <span class="text-muted small">C$ 0.00</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Estado -->
+                        <td class="text-center">
+                            {% if p.estado == 'pagado_completo' %}
+                                <span class="badge badge-completo rounded-pill px-2 py-1 small">
+                                    <i class="bi bi-check-circle-fill me-1"></i> Completo
+                                </span>
+                            {% elif p.estado == 'pago_parcial' %}
+                                <span class="badge badge-parcial rounded-pill px-2 py-1 small">
+                                    <i class="bi bi-pie-chart-fill me-1"></i> Parcial
+                                </span>
+                            {% else %}
+                                <span class="badge badge-pendiente rounded-pill px-2 py-1 small">
+                                    <i class="bi bi-clock me-1"></i> Pendiente
+                                </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="12" class="text-center text-muted py-4">
+                            <i class="bi bi-inbox text-muted display-6 d-block mb-2"></i>
+                            No hay registros de planilla procesados para el mes {{ mes }}.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="total-row">
+                    <tr>
+                        <td colspan="4" class="ps-2 text-uppercase">TOTALES GENERALES</td>
+                        <td class="text-end">{{ totales.salario_bruto | moneda }}</td>
+                        <td class="text-end text-danger">-{{ totales.inss_laboral | moneda }}</td>
+                        <td class="text-end text-danger">-{{ totales.ir_laboral | moneda }}</td>
+                        <td class="text-end text-secondary">{{ totales.inss_patronal | moneda }}</td>
+                        <td class="text-end fw-bold text-primary">{{ totales.salario_neto | moneda }}</td>
+                        <td class="text-end fw-bold text-success">{{ totales.total_pagado | moneda }}</td>
+                        <td class="text-end fw-bold text-danger">{{ totales.saldo_pendiente | moneda }}</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <!-- SECCIÓN 2: DESGLOSE DE TRANSACCIONES Y ABONOS PARCIALES DEL MES -->
+        <div class="d-flex justify-content-between align-items-center mb-2 mt-4">
+            <h6 class="fw-bold text-slate-800 mb-0">
+                <i class="bi bi-receipt-cutoff text-success me-2"></i> 2. Desglose de Desembolsos y Abonos Parciales Registrados en {{ mes }}
+            </h6>
+            <span class="badge bg-light text-muted border">{{ transacciones_abonos | length }} Transacciones</span>
+        </div>
+
+        <div class="table-responsive mb-4">
+            <table class="table table-sm table-bordered align-middle table-custom mb-0">
+                <thead>
+                    <tr>
+                        <th class="ps-2">Fecha Abono</th>
+                        <th>Colaborador</th>
+                        <th>Cédula</th>
+                        <th>Período Aplicable</th>
+                        <th>Concepto del Abono</th>
+                        <th>Método</th>
+                        <th>Referencia / Comprobante</th>
+                        <th>Registrado Por</th>
+                        <th class="text-end pe-2">Monto Desembolsado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in transacciones_abonos %}
+                    <tr>
+                        <td class="ps-2 text-muted fw-medium">{{ t.fecha_pago }}</td>
+                        <td class="fw-semibold text-slate-800">{{ t.nombre }}</td>
+                        <td class="small text-muted">{{ t.cedula }}</td>
+                        <td class="small fw-medium text-primary">{{ t.periodo_nombre }}</td>
+                        <td class="small">
+                            {{ t.concepto }}
+                            {% if t.notas %}
+                            <small class="text-muted d-block" style="font-size: 0.70rem;">{{ t.notas }}</small>
+                            {% endif %}
+                        </td>
+                        <td><span class="badge bg-light text-secondary border small">{{ t.metodo_pago }}</span></td>
+                        <td class="small text-muted">{{ t.referencia or 'S/R' }}</td>
+                        <td class="small text-muted"><i class="bi bi-person-check me-1"></i>{{ t.registrado_por }}</td>
+                        <td class="text-end pe-2 fw-bold text-success fs-6">+{{ t.monto | moneda }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="9" class="text-center text-muted py-3">
+                            No se registraron transacciones de abonos durante el mes {{ mes }}.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                {% if transacciones_abonos %}
+                <tfoot class="total-row">
+                    <tr>
+                        <td colspan="8" class="ps-2 text-uppercase">TOTAL DESEMBOLSADO EN ABONOS DEL MES:</td>
+                        <td class="text-end pe-2 fw-bold text-success fs-6">{{ totales.total_abonos_mes | moneda }}</td>
+                    </tr>
+                </tfoot>
+                {% endif %}
+            </table>
+        </div>
+
+        <!-- BLOQUE DE FIRMAS DE AUDITORÍA -->
+        <div class="row pt-4 text-center signature-block">
+            <div class="col-4">
+                <hr style="border-top: 1px solid #94a3b8; margin-bottom: 0.5rem;">
+                <p class="mb-0 fw-bold small text-slate-800">Elaborado Por</p>
+                <small class="text-muted" style="font-size: 0.75rem;">Encargado de Nómina / RRHH</small>
+            </div>
+            <div class="col-4">
+                <hr style="border-top: 1px solid #94a3b8; margin-bottom: 0.5rem;">
+                <p class="mb-0 fw-bold small text-slate-800">Revisado Por</p>
+                <small class="text-muted" style="font-size: 0.75rem;">Contabilidad / Finanzas</small>
+            </div>
+            <div class="col-4">
+                <hr style="border-top: 1px solid #94a3b8; margin-bottom: 0.5rem;">
+                <p class="mb-0 fw-bold small text-slate-800">Aprobado / Autorizado</p>
+                <small class="text-muted" style="font-size: 0.75rem;">Gerencia General</small>
+            </div>
+        </div>
+
     </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

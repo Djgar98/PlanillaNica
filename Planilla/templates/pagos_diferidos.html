@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pagos Diferidos y Abonos de Nómina - PlanillaNica</title>
+    <!-- Google Fonts & Bootstrap Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="bg-light">
+
+    {% include '_nav.html' %}
+
+    <div class="container pb-5">
+
+        <!-- MENSAJES FLASH -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm" role="alert">
+                <i class="bi bi-info-circle-fill me-2"></i> {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+            </div>
+          {% endfor %}
+        {% endwith %}
+
+        <!-- CABECERA -->
+        <div class="row align-items-center mb-4">
+            <div class="col-md-7">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="badge bg-primary-subtle text-primary fw-semibold px-2 py-1">
+                        <i class="bi bi-calendar2-range me-1"></i> Control de Desembolsos
+                    </span>
+                    <span class="text-muted small">Legislación Laboral de Nicaragua</span>
+                </div>
+                <h3 class="fw-bold text-slate-900 mb-1">Registro de Pagos Diferidos y Parciales</h3>
+                <p class="text-muted small mb-0">Gestione múltiples transacciones de abono por período mensual con control estricto de saldos y auditoría.</p>
+            </div>
+            <div class="col-md-5 text-md-end mt-3 mt-md-0 d-flex gap-2 justify-content-md-end">
+                <a href="{{ url_for('modulo_aguinaldo') }}" class="btn btn-outline-success btn-sm px-3 py-2 fw-medium shadow-sm">
+                    <i class="bi bi-gift-fill me-1"></i> Cálculo de Aguinaldo
+                </a>
+                <a href="{{ url_for('nuevo_periodo_planilla') }}" class="btn btn-primary btn-sm px-3 py-2 fw-semibold shadow-sm">
+                    <i class="bi bi-plus-circle-fill me-1"></i> Abrir Nuevo Período
+                </a>
+            </div>
+        </div>
+
+        <!-- TARJETAS DE ESTADÍSTICAS -->
+        <div class="row g-3 mb-4">
+            <div class="col-sm-6 col-lg-3">
+                <div class="card border-0 shadow-sm bg-white rounded-3 h-100">
+                    <div class="card-body p-3 d-flex align-items-center gap-3">
+                        <div class="bg-primary bg-opacity-10 text-primary p-3 rounded-3 fs-4">
+                            <i class="bi bi-journal-text"></i>
+                        </div>
+                        <div>
+                            <span class="text-muted small d-block">Períodos Totales</span>
+                            <span class="fs-4 fw-bold text-slate-800">{{ total_periodos }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-3">
+                <div class="card border-0 shadow-sm bg-white rounded-3 h-100">
+                    <div class="card-body p-3 d-flex align-items-center gap-3">
+                        <div class="bg-warning bg-opacity-10 text-warning p-3 rounded-3 fs-4">
+                            <i class="bi bi-hourglass-split"></i>
+                        </div>
+                        <div>
+                            <span class="text-muted small d-block">Pagos Parciales</span>
+                            <span class="fs-4 fw-bold text-warning">{{ total_parciales }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-3">
+                <div class="card border-0 shadow-sm bg-white rounded-3 h-100">
+                    <div class="card-body p-3 d-flex align-items-center gap-3">
+                        <div class="bg-success bg-opacity-10 text-success p-3 rounded-3 fs-4">
+                            <i class="bi bi-check-circle-fill"></i>
+                        </div>
+                        <div>
+                            <span class="text-muted small d-block">Completados</span>
+                            <span class="fs-4 fw-bold text-success">{{ total_completados }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-3">
+                <div class="card border-0 shadow-sm bg-white rounded-3 h-100">
+                    <div class="card-body p-3 d-flex align-items-center gap-3">
+                        <div class="bg-danger bg-opacity-10 text-danger p-3 rounded-3 fs-4">
+                            <i class="bi bi-cash-stack"></i>
+                        </div>
+                        <div>
+                            <span class="text-muted small d-block">Saldo Pendiente Global</span>
+                            <span class="fs-5 fw-bold text-danger">{{ saldo_pendiente_total | moneda }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FILTROS -->
+        <div class="card border-0 shadow-sm bg-white rounded-3 mb-4">
+            <div class="card-body p-3">
+                <form method="GET" class="row g-2 align-items-center">
+                    <div class="col-12 col-md-auto fw-semibold text-slate-700 me-2">
+                        <i class="bi bi-funnel text-muted me-1"></i> Filtrar Períodos:
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <select name="empleado_id" class="form-select form-select-sm">
+                            <option value="">-- Todos los Colaboradores --</option>
+                            {% for e in empleados %}
+                            <option value="{{ e.id }}" {% if request.args.get('empleado_id')|int == e.id %}selected{% endif %}>
+                                {{ e.nombre }} ({{ e.cedula }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <select name="estado" class="form-select form-select-sm">
+                            <option value="">-- Todos los Estados --</option>
+                            <option value="pendiente" {% if request.args.get('estado') == 'pendiente' %}selected{% endif %}>Pendiente</option>
+                            <option value="pago_parcial" {% if request.args.get('estado') == 'pago_parcial' %}selected{% endif %}>Pago Parcial</option>
+                            <option value="pagado_completo" {% if request.args.get('estado') == 'pagado_completo' %}selected{% endif %}>Completado</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-auto d-flex gap-2 ms-auto">
+                        <button type="submit" class="btn btn-primary btn-sm px-3">
+                            <i class="bi bi-search me-1"></i> Aplicar
+                        </button>
+                        {% if request.args.get('empleado_id') or request.args.get('estado') %}
+                        <a href="{{ url_for('pagos_diferidos') }}" class="btn btn-light border btn-sm text-muted">
+                            <i class="bi bi-x-circle me-1"></i> Limpiar
+                        </a>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- TABLA DE PERÍODOS DE PLANILLA Y PAGOS DIFERIDOS -->
+        <div class="card border-0 shadow-sm bg-white rounded-3 overflow-hidden">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light text-slate-700 small text-uppercase">
+                        <tr>
+                            <th class="ps-4">Colaborador</th>
+                            <th>Período / Mes</th>
+                            <th>Neto a Liquidar</th>
+                            <th>Abonos Realizados</th>
+                            <th>Saldo Pendiente</th>
+                            <th style="min-width: 140px;">Progreso de Pago</th>
+                            <th>Estado</th>
+                            <th class="text-end pe-4">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in periodos %}
+                        <tr>
+                            <!-- Colaborador -->
+                            <td class="ps-4">
+                                <span class="fw-bold text-slate-800 d-block">{{ p.nombre }}</span>
+                                <small class="text-muted"><i class="bi bi-card-text me-1"></i>{{ p.cedula }}</small>
+                            </td>
+
+                            <!-- Período -->
+                            <td>
+                                <span class="fw-semibold text-slate-700 d-block">{{ p.descripcion }}</span>
+                                <small class="text-muted">{{ p.fecha_inicio }} al {{ p.fecha_fin }}</small>
+                            </td>
+
+                            <!-- Neto a Liquidar -->
+                            <td class="fw-semibold text-slate-800">
+                                {{ p.salario_neto_total | moneda }}
+                                <small class="text-muted d-block" style="font-size: 0.72rem;">Bruto: {{ p.salario_bruto | moneda }}</small>
+                            </td>
+
+                            <!-- Total Pagado -->
+                            <td class="text-success fw-bold">
+                                {{ p.total_pagado | moneda }}
+                            </td>
+
+                            <!-- Saldo Pendiente -->
+                            <td>
+                                {% if p.saldo_pendiente > 0 %}
+                                    <span class="fw-bold text-danger">{{ p.saldo_pendiente | moneda }}</span>
+                                {% else %}
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                        <i class="bi bi-check-all me-1"></i> Saldado
+                                    </span>
+                                {% endif %}
+                            </td>
+
+                            <!-- Barra de Progreso -->
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="progress flex-grow-1" style="height: 7px;">
+                                        <div class="progress-bar {% if p.estado == 'pagado_completo' %}bg-success{% elif p.estado == 'pago_parcial' %}bg-warning{% else %}bg-secondary{% endif %}" 
+                                             role="progressbar" 
+                                             style="width: {{ p.porcentaje_pagado }}%;" 
+                                             aria-valuenow="{{ p.porcentaje_pagado }}" 
+                                             aria-valuemin="0" 
+                                             aria-valuemax="100">
+                                        </div>
+                                    </div>
+                                    <span class="small text-muted fw-semibold" style="font-size: 0.75rem;">{{ p.porcentaje_pagado }}%</span>
+                                </div>
+                            </td>
+
+                            <!-- Estado Badge -->
+                            <td>
+                                {% if p.estado == 'pagado_completo' %}
+                                    <span class="badge bg-success rounded-pill px-2 py-1 small">
+                                        <i class="bi bi-check-circle-fill me-1"></i> Completo
+                                    </span>
+                                {% elif p.estado == 'pago_parcial' %}
+                                    <span class="badge bg-warning text-dark rounded-pill px-2 py-1 small">
+                                        <i class="bi bi-pie-chart-fill me-1"></i> Parcial
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-secondary rounded-pill px-2 py-1 small">
+                                        <i class="bi bi-clock me-1"></i> Pendiente
+                                    </span>
+                                {% endif %}
+                            </td>
+
+                            <!-- Acciones -->
+                            <td class="text-end pe-4">
+                                <div class="btn-group btn-group-sm">
+                                    {% if p.estado != 'pagado_completo' %}
+                                    <a href="{{ url_for('registrar_abono', periodo_id=p.id) }}" class="btn btn-outline-success btn-sm" title="Registrar Abono Parcial">
+                                        <i class="bi bi-cash-coin me-1"></i> Abono
+                                    </a>
+                                    {% endif %}
+                                    <a href="{{ url_for('detalle_periodo', periodo_id=p.id) }}" class="btn btn-outline-primary btn-sm" title="Ver Detalle y Auditoría">
+                                        <i class="bi bi-eye"></i> Detalle
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center py-5 text-muted">
+                                <i class="bi bi-inbox display-4 text-slate-300 d-block mb-3"></i>
+                                <h6 class="fw-semibold">No se encontraron períodos de nómina</h6>
+                                <p class="small text-muted mb-3">Abra un nuevo período mensual para comenzar a registrar abonos diferidos.</p>
+                                <a href="{{ url_for('nuevo_periodo_planilla') }}" class="btn btn-primary btn-sm px-3">
+                                    <i class="bi bi-plus-circle me-1"></i> Abrir Primer Período
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

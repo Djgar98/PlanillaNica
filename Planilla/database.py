@@ -81,6 +81,10 @@ def init_db():
         _agregar_columna_si_falta(conn, "planilla", "inss_patronal_tasa", "REAL")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_planilla_empleado_fecha ON planilla (empleado_id, fecha)")
         
+        # Integración de esquema de Pagos Diferidos, Contratos y Aguinaldo
+        import payroll_module
+        payroll_module.GestorPlanillaDiferida().asegurar_esquema(conn)
+        
         conn.execute("""CREATE TABLE IF NOT EXISTS categorias (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nombre TEXT NOT NULL UNIQUE,
@@ -240,9 +244,181 @@ def obtener_historial_empleado(empleado_id):
 
 
 def obtener_planillas_por_mes(mes):
-    """Obtiene los pagos registrados en un mes YYYY-MM, junto con el empleado."""
+    """
+    Obtiene los registros de nómina para el mes YYYY-MM especificado.
+    Incluye:
+    1. Períodos de periodos_planilla cuyo año-mes coincide o que tuvieron abonos en ese mes.
+    2. Registros históricos de la tabla planilla.
+    Garantiza que los pagos parciales y saldos pendientes aparezcan correctamente.
+    """
+    try:
+        anio = int(mes[:4])
+        mes_num = int(mes[5:7])
+    except (ValueError, TypeError, IndexError):
+        return []
+
     with get_db() as conn:
-        return conn.execute("""SELECT p.*, e.nombre, e.cedula, e.cargo
-            FROM planilla p JOIN empleados e ON e.id = p.empleado_id
-            WHERE strftime('%Y-%m', p.fecha) = ?
-            ORDER BY p.fecha ASC, e.nombre ASC""", (mes,)).fetchall()
+        # 1. Obtener períodos correspondientes a este mes calendario o con abonos registrados en él
+        query_periodos = """
+        SELECT 
+            p.id,
+            p.empleado_id,
+            e.nombre,
+            e.cedula,
+            e.cargo,
+            COALESCE(
+                (SELECT MAX(t.fecha_pago) FROM transacciones_pago_planilla t WHERE t.periodo_planilla_id = p.id),
+                p.fecha_inicio
+            ) AS fecha,
+            p.salario_base_pactado AS salario_base,
+            p.horas_extras,
+            p.pago_horas_extras,
+            p.salario_bruto,
+            p.inss_laboral,
+            p.ir_laboral,
+            p.inss_patronal,
+            p.salario_neto_total AS salario_neto,
+            p.total_pagado,
+            p.saldo_pendiente,
+            p.estado,
+            p.descripcion AS periodo_descripcion,
+            (SELECT COUNT(*) FROM transacciones_pago_planilla t WHERE t.periodo_planilla_id = p.id) AS num_abonos,
+            'periodo' AS origen
+        FROM periodos_planilla p
+        JOIN empleados e ON e.id = p.empleado_id
+        WHERE (p.anio = ? AND p.mes = ?)
+           OR p.id IN (
+               SELECT DISTINCT periodo_planilla_id 
+               FROM transacciones_pago_planilla 
+               WHERE strftime('%Y-%m', fecha_pago) = ?
+           )
+        ORDER BY e.nombre ASC
+        """
+        periodos_rows = conn.execute(query_periodos, (anio, mes_num, mes)).fetchall()
+        empleados_en_periodos = {r["empleado_id"] for r in periodos_rows}
+
+        # 2. Registros históricos de tabla planilla que no colisionen con los períodos
+        query_historico = """
+        SELECT 
+            p.id,
+            p.empleado_id,
+            e.nombre,
+            e.cedula,
+            e.cargo,
+            p.fecha,
+            p.salario_base,
+            p.horas_extras,
+            p.pago_horas_extras,
+            p.salario_bruto,
+            p.inss_laboral,
+            p.ir_laboral,
+            p.inss_patronal,
+            p.salario_neto,
+            p.salario_neto AS total_pagado,
+            0.0 AS saldo_pendiente,
+            'pagado_completo' AS estado,
+            strftime('Planilla %Y-%m', p.fecha) AS periodo_descripcion,
+            1 AS num_abonos,
+            'historico' AS origen
+        FROM planilla p
+        JOIN empleados e ON e.id = p.empleado_id
+        WHERE strftime('%Y-%m', p.fecha) = ?
+        ORDER BY p.fecha ASC, e.nombre ASC
+        """
+        historicos_rows = conn.execute(query_historico, (mes,)).fetchall()
+
+        resultado = list(periodos_rows)
+        for h in historicos_rows:
+            if h["empleado_id"] not in empleados_en_periodos:
+                resultado.append(h)
+
+        return resultado
+
+
+def obtener_transacciones_abonos_por_mes(mes):
+    """
+    Obtiene todas las transacciones de abonos parciales desembolsados en el mes YYYY-MM.
+    """
+    with get_db() as conn:
+        query = """
+        SELECT 
+            t.id,
+            t.periodo_planilla_id,
+            t.empleado_id,
+            e.nombre,
+            e.cedula,
+            e.cargo,
+            p.descripcion AS periodo_nombre,
+            t.monto,
+            t.fecha_pago,
+            t.concepto,
+            t.metodo_pago,
+            t.referencia,
+            t.notas,
+            t.registrado_por,
+            t.fecha_registro
+        FROM transacciones_pago_planilla t
+        JOIN empleados e ON e.id = t.empleado_id
+        JOIN periodos_planilla p ON p.id = t.periodo_planilla_id
+        WHERE strftime('%Y-%m', t.fecha_pago) = ?
+        ORDER BY t.fecha_pago ASC, t.id ASC
+        """
+        return conn.execute(query, (mes,)).fetchall()
+
+
+
+# =====================================================================
+# FUNCIONES AUXILIARES: PAGOS DIFERIDOS Y AGUINALDO
+# =====================================================================
+
+def obtener_todos_periodos_planilla(empleado_id=None, estado=None):
+    """Obtiene períodos de planilla registrados con datos del colaborador y porcentaje pagado."""
+    with get_db() as conn:
+        query = """
+        SELECT p.*, e.nombre, e.cedula, e.cargo,
+               ROUND((p.total_pagado * 100.0) / CASE WHEN p.salario_neto_total > 0 THEN p.salario_neto_total ELSE 1 END, 1) AS porcentaje_pagado
+        FROM periodos_planilla p
+        JOIN empleados e ON e.id = p.empleado_id
+        WHERE 1=1
+        """
+        params = []
+        if empleado_id:
+            query += " AND p.empleado_id = ?"
+            params.append(empleado_id)
+        if estado:
+            query += " AND p.estado = ?"
+            params.append(estado)
+        query += " ORDER BY p.anio DESC, p.mes DESC, e.nombre ASC"
+        return conn.execute(query, params).fetchall()
+
+
+def obtener_periodo_con_transacciones(periodo_id):
+    """Obtiene un período específico junto con su lista de pagos diferidos/abonos."""
+    with get_db() as conn:
+        periodo = conn.execute("""
+        SELECT p.*, e.nombre, e.cedula, e.cargo, e.salario_base AS salario_base_emp,
+               ROUND((p.total_pagado * 100.0) / CASE WHEN p.salario_neto_total > 0 THEN p.salario_neto_total ELSE 1 END, 1) AS porcentaje_pagado
+        FROM periodos_planilla p
+        JOIN empleados e ON e.id = p.empleado_id
+        WHERE p.id = ?
+        """, (periodo_id,)).fetchone()
+        
+        if not periodo:
+            return None, []
+            
+        transacciones = conn.execute("""
+        SELECT t.*, u.usuario AS usuario_login
+        FROM transacciones_pago_planilla t
+        LEFT JOIN usuarios u ON u.id = t.usuario_id
+        WHERE t.periodo_planilla_id = ?
+        ORDER BY t.fecha_pago ASC, t.id ASC
+        """, (periodo_id,)).fetchall()
+        
+        return periodo, transacciones
+
+
+def obtener_todos_empleados():
+    """Obtiene el listado completo de empleados activos e inactivos."""
+    with get_db() as conn:
+        return conn.execute("SELECT * FROM empleados ORDER BY activo DESC, nombre ASC").fetchall()
+
