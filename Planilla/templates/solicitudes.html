@@ -20,7 +20,7 @@
                     Solicitudes de Anulación / Devolución
                 </h3>
                 <p class="text-muted small mb-0">
-                    {% if session.get('rol') in ['admin', 'bodega'] %}
+                    {% if puede('resolver_solicitudes') %}
                         Administra y resuelve las solicitudes pendientes de los vendedores.
                     {% else %}
                         Mis solicitudes enviadas.
@@ -53,7 +53,7 @@
                             <th>Fecha Solicitud</th>
                             <th>Monto</th>
                             <th>Estado</th>
-                            {% if session.get('rol') in ['admin', 'bodega'] %}
+                            {% if puede('resolver_solicitudes') %}
                             <th class="text-end">Acciones</th>
                             {% endif %}
                         </tr>
@@ -87,7 +87,7 @@
                                     <span class="badge text-bg-secondary"><i class="bi bi-x-circle-fill me-1"></i>Rechazada</span>
                                 {% endif %}
                             </td>
-                            {% if session.get('rol') in ['admin', 'bodega'] %}
+                            {% if puede('resolver_solicitudes') %}
                             <td class="text-end">
                                 {% if sol.estado == 'pendiente' %}
                                 <div class="d-flex gap-1 justify-content-end">

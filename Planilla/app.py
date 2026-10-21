@@ -17,6 +17,10 @@ from database import (
     obtener_transacciones_abonos_por_mes
 )
 from payroll_module import GestorPlanillaDiferida, CalcularAguinaldo, a_decimal
+from roles_permisos import (
+    ROLES, ROLES_INFO, PERMISOS, PERMISOS_POR_ROL,
+    tiene_permiso, obtener_permisos_rol
+)
 
 CEDULA_RE = re.compile(r"^\d{3}-\d{6}-\d{4}[A-Za-z]$")
 INSS_RE = re.compile(r"^\d{7}-\d$")
@@ -55,18 +59,36 @@ def formato_moneda(valor):
 
 
 @app.context_processor
-def inyectar_token_csrf():
+def inyectar_contexto_global():
     token = session.get("csrf_token")
     if not token:
         token = secrets.token_urlsafe(32)
         session["csrf_token"] = token
-    return {"csrf_token": token}
+    rol_actual = session.get("rol")
+    def puede(permiso):
+        return tiene_permiso(rol_actual, permiso)
+    def info_rol(rol=None):
+        return ROLES_INFO.get(rol or rol_actual, {
+            "codigo": rol or "",
+            "nombre": (rol or "").title(),
+            "badge": "secondary",
+            "icono": "bi-person-badge",
+            "emoji": "👤",
+            "descripcion": ""
+        })
+    return {
+        "csrf_token": token,
+        "puede": puede,
+        "tiene_permiso": puede,
+        "ROLES": ROLES,
+        "ROLES_INFO": ROLES_INFO,
+        "info_rol": info_rol,
+        "rol_actual": rol_actual,
+    }
 
 
 @app.before_request
 def validar_csrf():
-    with get_db() as conn:
-        categorias = conn.execute("SELECT * FROM categorias WHERE activo = 1 ORDER BY nombre").fetchall()
     if request.method == "POST":
         token, token_sesion = request.form.get("csrf_token", ""), session.get("csrf_token", "")
         if not token_sesion or not secrets.compare_digest(token, token_sesion):
@@ -82,13 +104,30 @@ def requiere_login(vista):
     return vista_protegida
 
 
-def requiere_rol(*roles):
+def requiere_permiso(*permisos):
+    """Exige que el usuario conectado cuente con al menos uno de los permisos indicados (o admin)."""
     def decorador(vista):
         @wraps(vista)
         def vista_protegida(*args, **kwargs):
             if "usuario" not in session:
                 return redirect(url_for("login"))
-            if session.get("rol") not in roles:
+            rol = session.get("rol")
+            if not any(tiene_permiso(rol, p) for p in permisos):
+                abort(403, "No tienes permiso para realizar esta operación.")
+            return vista(*args, **kwargs)
+        return vista_protegida
+    return decorador
+
+
+def requiere_rol(*roles):
+    """Comprueba pertenencia a roles permitidos (el rol 'admin' siempre tiene acceso transversal)."""
+    def decorador(vista):
+        @wraps(vista)
+        def vista_protegida(*args, **kwargs):
+            if "usuario" not in session:
+                return redirect(url_for("login"))
+            rol = session.get("rol")
+            if rol != "admin" and rol not in roles:
                 abort(403, "No tienes permiso para realizar esta operación.")
             return vista(*args, **kwargs)
         return vista_protegida
@@ -191,11 +230,13 @@ def login():
 def redirigir_segun_rol(rol):
     if rol == "vendedor":
         return redirect(url_for("ventas"))
-    elif rol == "bodega":
+    elif rol in ("bodega", "compras"):
         return redirect(url_for("inventario"))
-    elif rol in ("admin", "rrhh"):
+    elif rol == "contabilidad":
+        return redirect(url_for("contabilidad_index"))
+    elif rol in ("admin", "rrhh", "supervisor", "auditor"):
         return redirect(url_for("index"))
-    return redirect(url_for("ventas"))
+    return redirect(url_for("login"))
 
 
 @app.route("/logout", methods=["POST"])
@@ -206,8 +247,11 @@ def logout():
 
 
 @app.route("/")
-@requiere_rol("admin", "rrhh")
+@requiere_login
 def index():
+    rol = session.get("rol")
+    if not tiene_permiso(rol, "consultar_empleados"):
+        return redirigir_segun_rol(rol)
     fecha_desde, fecha_hasta = request.args.get("fecha_desde", ""), request.args.get("fecha_hasta", "")
     try:
         if fecha_desde: date.fromisoformat(fecha_desde)
@@ -219,8 +263,93 @@ def index():
     return render_template("index.html", empleados=obtener_empleados_con_ultimo_pago(fecha_desde or None, fecha_hasta or None), fecha_desde=fecha_desde, fecha_hasta=fecha_hasta, mes_actual=date.today().strftime("%Y-%m"))
 
 
+@app.route("/contabilidad")
+@requiere_permiso("consultar_reportes_financieros", "consultar_planilla", "consultar_todas_ventas")
+def contabilidad_index():
+    mes = request.args.get("mes", date.today().strftime("%Y-%m"))
+    try:
+        fecha_mes = date.fromisoformat(f"{mes}-01")
+        if fecha_mes.strftime("%Y-%m") != mes:
+            raise ValueError
+    except ValueError:
+        mes = date.today().strftime("%Y-%m")
+        fecha_mes = date.fromisoformat(f"{mes}-01")
+
+    mes_nombre = fecha_mes.strftime("%B %Y")
+    meses_es = {
+        "January": "Enero", "February": "Febrero", "March": "Marzo", "April": "Abril",
+        "May": "Mayo", "June": "Junio", "July": "Julio", "August": "Agosto",
+        "September": "Septiembre", "October": "Octubre", "November": "Noviembre", "December": "Diciembre"
+    }
+    for eng, esp in meses_es.items():
+        mes_nombre = mes_nombre.replace(eng, esp)
+
+    with get_db() as conn:
+        kpis_ventas = conn.execute("""
+            SELECT 
+                COUNT(*) as total_transacciones,
+                COALESCE(SUM(CASE WHEN estado = 'completada' THEN total ELSE 0 END), 0) as total_ingresos,
+                COALESCE(SUM(CASE WHEN estado IN ('anulada', 'devuelta') THEN total ELSE 0 END), 0) as total_anulado,
+                COUNT(CASE WHEN estado = 'completada' THEN 1 END) as cant_completadas
+            FROM ventas 
+            WHERE strftime('%Y-%m', fecha) = ?
+        """, (mes,)).fetchone()
+
+        kpis_nomina = conn.execute("""
+            SELECT 
+                COUNT(*) as total_pagos,
+                COALESCE(SUM(salario_bruto), 0) as total_bruto,
+                COALESCE(SUM(salario_neto), 0) as total_neto,
+                COALESCE(SUM(inss_laboral), 0) as total_inss_lab,
+                COALESCE(SUM(ir_laboral), 0) as total_ir,
+                COALESCE(SUM(inss_patronal), 0) as total_inss_pat,
+                COALESCE(SUM(pago_horas_extras), 0) as total_horas_extras
+            FROM planilla 
+            WHERE strftime('%Y-%m', fecha) = ?
+        """, (mes,)).fetchone()
+
+        total_ingresos = kpis_ventas["total_ingresos"]
+        total_nomina_neta = kpis_nomina["total_neto"]
+        total_cargas_patronales = kpis_nomina["total_inss_pat"]
+        costo_total_empleador = kpis_nomina["total_bruto"] + kpis_nomina["total_inss_pat"]
+        balance_operativo = total_ingresos - costo_total_empleador
+        total_obligaciones_fiscales = kpis_nomina["total_inss_lab"] + kpis_nomina["total_inss_pat"] + kpis_nomina["total_ir"]
+
+        ultimos_pagos = conn.execute("""
+            SELECT p.*, e.primer_nombre, e.primer_apellido, e.cedula, c.nombre as cargo_nombre, d.nombre as depto_nombre
+            FROM planilla p
+            JOIN empleados e ON e.id = p.empleado_id
+            LEFT JOIN cargos c ON c.id = e.cargo_id
+            LEFT JOIN departamentos d ON d.id = e.departamento_id
+            ORDER BY p.id DESC LIMIT 6
+        """).fetchall()
+
+        ultimas_ventas = conn.execute("""
+            SELECT v.*, u.usuario
+            FROM ventas v
+            LEFT JOIN usuarios u ON u.id = v.usuario_id
+            ORDER BY v.id DESC LIMIT 6
+        """).fetchall()
+
+    return render_template(
+        "index_contabilidad.html",
+        mes=mes,
+        mes_nombre=mes_nombre,
+        kpis_ventas=kpis_ventas,
+        kpis_nomina=kpis_nomina,
+        total_ingresos=total_ingresos,
+        total_nomina_neta=total_nomina_neta,
+        total_cargas_patronales=total_cargas_patronales,
+        costo_total_empleador=costo_total_empleador,
+        balance_operativo=balance_operativo,
+        total_obligaciones_fiscales=total_obligaciones_fiscales,
+        ultimos_pagos=ultimos_pagos,
+        ultimas_ventas=ultimas_ventas
+    )
+
+
 @app.route("/reportes/planilla-mensual")
-@requiere_rol("admin", "rrhh")
+@requiere_permiso("consultar_reportes_planilla")
 def reporte_planilla_mensual():
     mes = request.args.get("mes", date.today().strftime("%Y-%m"))
     try:
@@ -254,7 +383,7 @@ def reporte_planilla_mensual():
 
 
 @app.route("/empleado/nuevo", methods=["GET", "POST"])
-@requiere_rol("admin", "rrhh")
+@requiere_permiso("gestionar_empleados")
 def nuevo_empleado():
     with get_db() as conn:
         cargos = conn.execute("SELECT * FROM cargos WHERE activo = 1 ORDER BY nombre").fetchall()
@@ -279,7 +408,7 @@ def nuevo_empleado():
 
 
 @app.route("/empleado/editar/<int:id>", methods=["GET", "POST"])
-@requiere_rol("admin", "rrhh")
+@requiere_permiso("gestionar_empleados")
 def editar_empleado(id):
     with get_db() as conn:
         conn.row_factory = sqlite3.Row
@@ -314,7 +443,7 @@ def editar_empleado(id):
 
 
 @app.route("/empleado/estado/<int:id>/<int:nuevo_estado>", methods=["POST"])
-@requiere_rol("admin", "rrhh")
+@requiere_permiso("gestionar_empleados")
 def cambiar_estado_empleado(id, nuevo_estado):
     if nuevo_estado not in (0, 1): abort(400, "Estado de empleado inválido.")
     with get_db() as conn:
@@ -325,7 +454,7 @@ def cambiar_estado_empleado(id, nuevo_estado):
 
 
 @app.route("/empleado/historial/<int:empleado_id>")
-@requiere_rol("admin", "rrhh")
+@requiere_permiso("consultar_empleados", "consultar_planilla")
 def historial_empleado(empleado_id):
     with get_db() as conn:
         empleado = conn.execute("SELECT * FROM empleados WHERE id = ?", (empleado_id,)).fetchone()
@@ -334,7 +463,7 @@ def historial_empleado(empleado_id):
 
 
 @app.route("/empleado/<int:empleado_id>/reporte")
-@requiere_rol("admin", "rrhh")
+@requiere_permiso("consultar_reportes_planilla")
 def reporte_historial_empleado(empleado_id):
     """Genera un reporte imprimible del historial y acumulados del colaborador."""
     with get_db() as conn:
@@ -355,7 +484,7 @@ def reporte_historial_empleado(empleado_id):
 
 
 @app.route("/planilla/<int:planilla_id>/recibo")
-@requiere_rol("admin", "rrhh")
+@requiere_permiso("consultar_reportes_planilla")
 def recibo_planilla(planilla_id):
     """Muestra un comprobante imprimible de un pago ya registrado."""
     with get_db() as conn:
@@ -367,7 +496,7 @@ def recibo_planilla(planilla_id):
 
 
 @app.route("/agregar-planilla/<int:empleado_id>", methods=["GET", "POST"])
-@requiere_rol("admin", "rrhh")
+@requiere_permiso("procesar_planilla")
 def agregar_planilla(empleado_id):
     with get_db() as conn:
         empleado = conn.execute("SELECT * FROM empleados WHERE id = ?", (empleado_id,)).fetchone()
@@ -400,7 +529,7 @@ def agregar_planilla(empleado_id):
 # =====================================================================
 
 @app.route("/planilla/pagos-diferidos")
-@requiere_rol("admin", "rrhh")
+@requiere_permiso("consultar_planilla")
 def pagos_diferidos():
     empleado_id = request.args.get("empleado_id", type=int)
     estado = request.args.get("estado", "").strip() or None
@@ -424,7 +553,7 @@ def pagos_diferidos():
 
 
 @app.route("/planilla/pagos-diferidos/nuevo", methods=["GET", "POST"])
-@requiere_rol("admin", "rrhh")
+@requiere_permiso("procesar_planilla")
 def nuevo_periodo_planilla():
     empleados = obtener_todos_empleados()
     hoy = date.today()
@@ -459,7 +588,7 @@ def nuevo_periodo_planilla():
 
 
 @app.route("/planilla/pagos-diferidos/<int:periodo_id>/abono", methods=["GET", "POST"])
-@requiere_rol("admin", "rrhh")
+@requiere_permiso("procesar_planilla")
 def registrar_abono(periodo_id):
     periodo, transacciones = obtener_periodo_con_transacciones(periodo_id)
     if not periodo:
@@ -513,7 +642,7 @@ def registrar_abono(periodo_id):
 
 
 @app.route("/planilla/pagos-diferidos/<int:periodo_id>/detalle")
-@requiere_rol("admin", "rrhh")
+@requiere_permiso("consultar_planilla")
 def detalle_periodo(periodo_id):
     periodo, transacciones = obtener_periodo_con_transacciones(periodo_id)
     if not periodo:
@@ -522,7 +651,7 @@ def detalle_periodo(periodo_id):
 
 
 @app.route("/planilla/aguinaldo")
-@requiere_rol("admin", "rrhh")
+@requiere_permiso("consultar_planilla")
 def modulo_aguinaldo():
     anio_fiscal = request.args.get("anio", type=int) or date.today().year
     empleados = obtener_todos_empleados()
@@ -551,7 +680,7 @@ def modulo_aguinaldo():
 
 
 @app.route("/reportes/aguinaldo")
-@requiere_rol("admin", "rrhh")
+@requiere_permiso("consultar_reportes_planilla")
 def reporte_aguinaldo():
     """Genera el reporte oficial e imprimible del Décimo Tercer Mes (Ley 185)."""
     anio_fiscal = request.args.get("anio", type=int) or date.today().year
@@ -581,7 +710,7 @@ def reporte_aguinaldo():
 
 
 @app.route("/planilla/aguinaldo/<int:empleado_id>/<int:anio>/recibo")
-@requiere_rol("admin", "rrhh")
+@requiere_permiso("consultar_reportes_planilla")
 def recibo_aguinaldo(empleado_id, anio):
     gestor = GestorPlanillaDiferida()
     with get_db() as conn:
@@ -594,7 +723,7 @@ def recibo_aguinaldo(empleado_id, anio):
 
 
 @app.route("/inventario")
-@requiere_rol("admin", "bodega")
+@requiere_permiso("consultar_inventario")
 def inventario():
     incluir_inactivos = request.args.get("todos") == "1"
     with get_db() as conn:
@@ -618,7 +747,7 @@ def datos_producto(formulario):
 
 
 @app.route("/inventario/nuevo", methods=["GET", "POST"])
-@requiere_rol("admin", "bodega")
+@requiere_permiso("gestionar_productos")
 def nuevo_producto():
     with get_db() as conn:
         categorias = conn.execute("SELECT * FROM categorias WHERE activo = 1 ORDER BY nombre").fetchall()
@@ -641,7 +770,7 @@ def nuevo_producto():
 
 
 @app.route("/inventario/<int:producto_id>/editar", methods=["GET", "POST"])
-@requiere_rol("admin", "bodega")
+@requiere_permiso("gestionar_productos")
 def editar_producto(producto_id):
     with get_db() as conn:
         conn.row_factory = sqlite3.Row
@@ -674,13 +803,20 @@ def editar_producto(producto_id):
 
 
 @app.route("/inventario/<int:producto_id>/movimiento", methods=["POST"])
-@requiere_rol("admin", "bodega")
+@requiere_login
 def movimiento_producto(producto_id):
     try:
         cantidad = int(numero_positivo(request.form.get("cantidad"), "La cantidad", False))
         tipo = request.form.get("tipo")
-        if tipo not in ("entrada", "ajuste"): raise ValueError("Tipo de movimiento inválido.")
-        if tipo == "ajuste": cantidad = -cantidad
+        if tipo not in ("entrada", "ajuste"):
+            raise ValueError("Tipo de movimiento inválido.")
+        rol = session.get("rol")
+        if tipo == "entrada" and not tiene_permiso(rol, "registrar_entradas"):
+            abort(403, "No tienes permiso para registrar entradas de existencias.")
+        if tipo == "ajuste" and not tiene_permiso(rol, "ajustar_existencias"):
+            abort(403, "No tienes permiso para registrar ajustes de existencias.")
+        if tipo == "ajuste":
+            cantidad = -cantidad
         with get_db() as conn:
             registrar_movimiento(conn, producto_id, tipo, cantidad, session["usuario_id"], nota=request.form.get("nota", "").strip())
         flash("Movimiento de inventario registrado.", "success")
@@ -690,7 +826,7 @@ def movimiento_producto(producto_id):
 
 
 @app.route("/inventario/<int:producto_id>/estado/<int:estado>", methods=["POST"])
-@requiere_rol("admin", "bodega")
+@requiere_permiso("gestionar_productos")
 def estado_producto(producto_id, estado):
     if estado not in (0, 1): abort(400)
     with get_db() as conn:
@@ -702,16 +838,23 @@ def estado_producto(producto_id, estado):
 
 
 @app.route("/ventas")
-@requiere_rol("admin", "vendedor", "bodega")
+@requiere_login
 def ventas():
+    rol = session.get("rol")
+    if not (tiene_permiso(rol, "consultar_todas_ventas") or tiene_permiso(rol, "consultar_ventas_propias")):
+        abort(403, "No tienes permiso para consultar ventas.")
     with get_db() as conn:
-        ventas_lista = conn.execute("""SELECT v.*, u.usuario, COUNT(d.id) AS lineas FROM ventas v JOIN usuarios u ON u.id=v.usuario_id
-            LEFT JOIN detalle_ventas d ON d.venta_id=v.id GROUP BY v.id ORDER BY v.id DESC""").fetchall()
+        if tiene_permiso(rol, "consultar_todas_ventas"):
+            ventas_lista = conn.execute("""SELECT v.*, u.usuario, COUNT(d.id) AS lineas FROM ventas v JOIN usuarios u ON u.id=v.usuario_id
+                LEFT JOIN detalle_ventas d ON d.venta_id=v.id GROUP BY v.id ORDER BY v.id DESC""").fetchall()
+        else:
+            ventas_lista = conn.execute("""SELECT v.*, u.usuario, COUNT(d.id) AS lineas FROM ventas v JOIN usuarios u ON u.id=v.usuario_id
+                LEFT JOIN detalle_ventas d ON d.venta_id=v.id WHERE v.usuario_id = ? GROUP BY v.id ORDER BY v.id DESC""", (session["usuario_id"],)).fetchall()
     return render_template("ventas.html", ventas=ventas_lista)
 
 
 @app.route("/ventas/nueva", methods=["GET", "POST"])
-@requiere_rol("admin", "vendedor", "bodega")
+@requiere_permiso("crear_ventas")
 def nueva_venta():
     with get_db() as conn:
         productos = conn.execute("SELECT * FROM productos WHERE activo=1 AND existencia>0 ORDER BY nombre").fetchall()
@@ -743,28 +886,40 @@ def nueva_venta():
 
 
 @app.route("/ventas/<int:venta_id>")
-@requiere_rol("admin", "vendedor", "bodega")
+@requiere_login
 def detalle_venta(venta_id):
+    rol = session.get("rol")
+    if not (tiene_permiso(rol, "consultar_todas_ventas") or tiene_permiso(rol, "consultar_ventas_propias")):
+        abort(403, "No tienes permiso para consultar ventas.")
     with get_db() as conn:
         venta = conn.execute("SELECT v.*,u.usuario FROM ventas v JOIN usuarios u ON u.id=v.usuario_id WHERE v.id=?", (venta_id,)).fetchone()
+        if venta is None: abort(404)
+        if not tiene_permiso(rol, "consultar_todas_ventas"):
+            if venta["usuario_id"] != session.get("usuario_id"):
+                abort(403, "Solo puedes consultar tus propias ventas.")
         detalles = conn.execute("SELECT d.*,p.nombre,p.codigo FROM detalle_ventas d JOIN productos p ON p.id=d.producto_id WHERE d.venta_id=?", (venta_id,)).fetchall()
-    if venta is None: abort(404)
     return render_template("detalle_venta.html", venta=venta, detalles=detalles)
 
 
 @app.route("/ventas/<int:venta_id>/ticket")
-@requiere_rol("admin", "vendedor", "bodega")
+@requiere_login
 def ticket_venta(venta_id):
+    rol = session.get("rol")
+    if not (tiene_permiso(rol, "consultar_todas_ventas") or tiene_permiso(rol, "consultar_ventas_propias")):
+        abort(403, "No tienes permiso para consultar ventas.")
     with get_db() as conn:
         venta = conn.execute("SELECT v.*, u.usuario FROM ventas v JOIN usuarios u ON u.id=v.usuario_id WHERE v.id=?", (venta_id,)).fetchone()
+        if venta is None:
+            abort(404)
+        if not tiene_permiso(rol, "consultar_todas_ventas"):
+            if venta["usuario_id"] != session.get("usuario_id"):
+                abort(403, "Solo puedes consultar tus propias ventas.")
         detalles = conn.execute("SELECT d.*, p.nombre, p.codigo FROM detalle_ventas d JOIN productos p ON p.id=d.producto_id WHERE d.venta_id=?", (venta_id,)).fetchall()
-    if venta is None:
-        abort(404)
     return render_template("ticket_venta.html", venta=venta, detalles=detalles)
 
 
 @app.route("/ventas/<int:venta_id>/anular", methods=["POST"])
-@requiere_rol("admin")
+@requiere_permiso("resolver_solicitudes")
 def anular_venta(venta_id):
     accion = request.form.get("accion")
     if accion not in ("anulada", "devuelta"): abort(400)
@@ -783,8 +938,64 @@ def anular_venta(venta_id):
     return redirect(url_for("detalle_venta", venta_id=venta_id))
 
 
+@app.route("/reportes/ventas")
+@requiere_permiso("consultar_reportes_ventas", "consultar_reportes_financieros")
+def reporte_ventas():
+    fecha_desde = request.args.get("fecha_desde", "")
+    fecha_hasta = request.args.get("fecha_hasta", "")
+    estado = request.args.get("estado", "")
+    
+    query = "SELECT v.*, u.usuario FROM ventas v LEFT JOIN usuarios u ON u.id = v.usuario_id WHERE 1=1"
+    params = []
+    
+    if fecha_desde:
+        query += " AND DATE(v.fecha) >= ?"
+        params.append(fecha_desde)
+    if fecha_hasta:
+        query += " AND DATE(v.fecha) <= ?"
+        params.append(fecha_hasta)
+    if estado:
+        query += " AND v.estado = ?"
+        params.append(estado)
+        
+    query += " ORDER BY v.fecha DESC"
+    
+    with get_db() as conn:
+        ventas_lista = conn.execute(query, params).fetchall()
+        
+        total_monto = sum(v["total"] for v in ventas_lista if v["estado"] == "completada")
+        total_anulado = sum(v["total"] for v in ventas_lista if v["estado"] in ("anulada", "devuelta"))
+        cant_completadas = sum(1 for v in ventas_lista if v["estado"] == "completada")
+        cant_anuladas = sum(1 for v in ventas_lista if v["estado"] in ("anulada", "devuelta"))
+        ticket_promedio = (total_monto / cant_completadas) if cant_completadas > 0 else 0.0
+        
+        vendedores_resumen = conn.execute("""
+            SELECT u.usuario, 
+                   COUNT(v.id) as total_ventas,
+                   SUM(CASE WHEN v.estado = 'completada' THEN v.total ELSE 0 END) as total_vendido
+            FROM ventas v
+            LEFT JOIN usuarios u ON u.id = v.usuario_id
+            GROUP BY v.usuario_id
+            ORDER BY total_vendido DESC
+        """).fetchall()
+
+    return render_template(
+        "reporte_ventas.html",
+        ventas=ventas_lista,
+        total_monto=total_monto,
+        total_anulado=total_anulado,
+        cant_completadas=cant_completadas,
+        cant_anuladas=cant_anuladas,
+        ticket_promedio=ticket_promedio,
+        vendedores_resumen=vendedores_resumen,
+        fecha_desde=fecha_desde,
+        fecha_hasta=fecha_hasta,
+        estado=estado
+    )
+
+
 @app.route("/ventas/<int:venta_id>/devolucion_parcial", methods=["POST"])
-@requiere_rol("admin", "bodega")
+@requiere_permiso("resolver_solicitudes")
 def devolucion_parcial(venta_id):
     producto_id = request.form.get("producto_id", type=int)
     cantidad = request.form.get("cantidad", type=int)
@@ -831,46 +1042,56 @@ def devolucion_parcial(venta_id):
 
 
 @app.route("/usuarios", methods=["GET", "POST"])
-@requiere_rol("admin", "rrhh")
+@requiere_permiso("gestionar_usuarios")
 def usuarios():
     if request.method == "POST":
         usuario, nombre, password, rol, empleado_id = (request.form.get(k, "").strip() for k in ("usuario", "nombre", "password", "rol", "empleado_id"))
         empleado_id = empleado_id if empleado_id else None
         try:
-            if not usuario or not nombre or len(password) < 6: raise ValueError("Usuario, nombre y una contraseña de 6 caracteres son obligatorios.")
-            if rol not in ("admin", "vendedor", "rrhh", "bodega"): raise ValueError("Rol inválido.")
-            with get_db() as conn: conn.execute("INSERT INTO usuarios (usuario,nombre,password_hash,rol,empleado_id) VALUES (?,?,?,?,?)", (usuario,nombre,generate_password_hash(password),rol,empleado_id))
-            flash("Usuario creado.", "success")
+            if not usuario or not nombre or len(password) < 6:
+                raise ValueError("Usuario, nombre y una contraseña de al menos 6 caracteres son obligatorios.")
+            if rol not in ROLES:
+                raise ValueError(f"Rol inválido. Roles admitidos: {', '.join(ROLES)}")
+            with get_db() as conn:
+                conn.execute("INSERT INTO usuarios (usuario,nombre,password_hash,rol,empleado_id) VALUES (?,?,?,?,?)",
+                             (usuario, nombre, generate_password_hash(password), rol, empleado_id))
+            flash("Usuario creado exitosamente.", "success")
             return redirect(url_for("usuarios"))
-        except (ValueError, sqlite3.IntegrityError) as error: flash("El usuario ya existe." if isinstance(error, sqlite3.IntegrityError) else str(error), "danger")
-    with get_db() as conn: lista = conn.execute("SELECT u.id,u.usuario,u.nombre,u.rol,u.activo,u.creado_en,e.nombre as empleado_nombre FROM usuarios u LEFT JOIN empleados e ON e.id=u.empleado_id ORDER BY u.nombre").fetchall()
+        except (ValueError, sqlite3.IntegrityError) as error:
+            flash("El usuario ya existe." if isinstance(error, sqlite3.IntegrityError) else str(error), "danger")
     with get_db() as conn:
+        lista = conn.execute("SELECT u.id,u.usuario,u.nombre,u.rol,u.activo,u.creado_en,e.nombre as empleado_nombre FROM usuarios u LEFT JOIN empleados e ON e.id=u.empleado_id ORDER BY u.nombre").fetchall()
         empleados = conn.execute("SELECT id, nombre, cedula FROM empleados WHERE activo=1").fetchall()
-    return render_template("usuarios.html", usuarios=lista, empleados=empleados)
+    return render_template("usuarios.html", usuarios=lista, empleados=empleados, roles=ROLES, roles_info=ROLES_INFO)
 
 
 @app.route("/usuarios/<int:usuario_id>/estado/<int:estado>", methods=["POST"])
-@requiere_rol("admin", "rrhh")
+@requiere_permiso("gestionar_usuarios")
 def estado_usuario(usuario_id, estado):
-    if estado not in (0, 1) or usuario_id == session["usuario_id"]: abort(400, "No puedes cambiar tu propio acceso.")
-    with get_db() as conn: resultado = conn.execute("UPDATE usuarios SET activo=? WHERE id=?", (estado, usuario_id))
-    if not resultado.rowcount: abort(404)
+    if estado not in (0, 1) or usuario_id == session["usuario_id"]:
+        abort(400, "No puedes cambiar tu propio acceso.")
+    with get_db() as conn:
+        resultado = conn.execute("UPDATE usuarios SET activo=? WHERE id=?", (estado, usuario_id))
+    if not resultado.rowcount:
+        abort(404)
     flash("Acceso de usuario actualizado.", "info")
     return redirect(url_for("usuarios"))
 
+
 @app.route("/usuarios/<int:usuario_id>/rol", methods=["POST"])
-@requiere_rol("admin", "rrhh")
+@requiere_permiso("gestionar_usuarios")
 def cambiar_rol_usuario(usuario_id):
     nuevo_rol = request.form.get("rol")
-    if nuevo_rol not in ("admin", "vendedor", "rrhh", "bodega"):
+    if nuevo_rol not in ROLES:
         abort(400, "Rol inválido.")
     with get_db() as conn:
         conn.execute("UPDATE usuarios SET rol=? WHERE id=?", (nuevo_rol, usuario_id))
     flash("Rol de usuario actualizado correctamente.", "success")
     return redirect(url_for("usuarios"))
 
+
 @app.route("/usuarios/<int:usuario_id>/password", methods=["POST"])
-@requiere_rol("admin", "rrhh")
+@requiere_permiso("gestionar_usuarios")
 def cambiar_password_usuario(usuario_id):
     nueva_password = request.form.get("password", "")
     if len(nueva_password) < 6:
@@ -884,9 +1105,8 @@ def cambiar_password_usuario(usuario_id):
     return redirect(url_for("usuarios"))
 
 
-
 @app.route("/catalogo/<tipo>", methods=["GET", "POST"])
-@requiere_rol("admin", "rrhh", "bodega")
+@requiere_login
 def catalogo(tipo):
     tablas = {
         "marcas": "Marcas",
@@ -896,6 +1116,12 @@ def catalogo(tipo):
     }
     if tipo not in tablas:
         abort(404)
+        
+    rol = session.get("rol")
+    if tipo in ("cargos", "departamentos") and not tiene_permiso(rol, "gestionar_empleados"):
+        abort(403, "No tienes permiso para gestionar catálogos de colaboradores.")
+    if tipo in ("marcas", "tipos") and not tiene_permiso(rol, "gestionar_categorias"):
+        abort(403, "No tienes permiso para gestionar marcas o tipos de producto.")
         
     titulo = tablas[tipo]
     
@@ -918,19 +1144,26 @@ def catalogo(tipo):
         
     return render_template("catalogo.html", titulo=titulo, items=items, tipo_url=tipo)
 
+
 @app.route("/catalogo/<tipo>/<int:item_id>/estado/<int:estado>", methods=["POST"])
-@requiere_rol("admin", "rrhh", "bodega")
+@requiere_login
 def estado_catalogo(tipo, item_id, estado):
     tablas = ["marcas", "tipos", "cargos", "departamentos"]
     if tipo not in tablas or estado not in (0, 1):
         abort(400)
+    rol = session.get("rol")
+    if tipo in ("cargos", "departamentos") and not tiene_permiso(rol, "gestionar_empleados"):
+        abort(403, "No tienes permiso para modificar catálogos de colaboradores.")
+    if tipo in ("marcas", "tipos") and not tiene_permiso(rol, "gestionar_categorias"):
+        abort(403, "No tienes permiso para modificar marcas o tipos de producto.")
     with get_db() as conn:
         conn.execute(f"UPDATE {tipo} SET activo = ? WHERE id = ?", (estado, item_id))
     flash("Estado actualizado.", "success")
     return redirect(url_for('catalogo', tipo=tipo))
 
+
 @app.route("/categorias", methods=["GET", "POST"])
-@requiere_rol("admin", "bodega")
+@requiere_permiso("gestionar_categorias")
 def categorias():
     if request.method == "POST":
         nombre = request.form.get("nombre", "").strip()
@@ -948,23 +1181,26 @@ def categorias():
         lista = conn.execute("SELECT * FROM categorias ORDER BY nombre").fetchall()
     return render_template("categorias.html", categorias=lista)
 
+
 @app.route("/categorias/<int:cat_id>/estado/<int:estado>", methods=["POST"])
-@requiere_rol("admin", "bodega")
+@requiere_permiso("gestionar_categorias")
 def estado_categoria(cat_id, estado):
     with get_db() as conn:
         conn.execute("UPDATE categorias SET activo=? WHERE id=?", (estado, cat_id))
     flash("Estado actualizado.", "info")
     return redirect(url_for("categorias"))
 
+
 @app.route("/kardex")
-@requiere_rol("admin", "bodega")
+@requiere_permiso("consultar_reportes_inventario", "consultar_reportes_auditoria")
 def kardex_lista():
     with get_db() as conn:
         productos = conn.execute("SELECT p.id, p.codigo, p.nombre, p.existencia FROM productos p ORDER BY p.nombre").fetchall()
     return render_template("kardex_lista.html", productos=productos)
 
+
 @app.route("/kardex/<int:producto_id>")
-@requiere_rol("admin", "bodega")
+@requiere_permiso("consultar_reportes_inventario", "consultar_reportes_auditoria")
 def kardex_producto(producto_id):
     with get_db() as conn:
         producto = conn.execute("SELECT * FROM productos WHERE id=?", (producto_id,)).fetchone()
@@ -972,18 +1208,23 @@ def kardex_producto(producto_id):
         movs = conn.execute("SELECT m.*, u.usuario FROM movimientos_inventario m LEFT JOIN usuarios u ON u.id=m.usuario_id WHERE m.producto_id=? ORDER BY m.id ASC", (producto_id,)).fetchall()
     return render_template("kardex_detalle.html", producto=producto, movimientos=movs)
 
+
 @app.route("/solicitudes")
-@requiere_rol("admin", "bodega", "vendedor")
+@requiere_login
 def solicitudes():
+    rol = session.get("rol")
+    if not (tiene_permiso(rol, "resolver_solicitudes") or tiene_permiso(rol, "solicitar_anulacion") or tiene_permiso(rol, "consultar_reportes_auditoria")):
+        abort(403, "No tienes permiso para ver solicitudes de anulación.")
     with get_db() as conn:
-        if session.get("rol") == "vendedor":
-            lista = conn.execute("SELECT s.*, v.fecha as venta_fecha, v.total, u.usuario FROM solicitudes_anulacion s JOIN ventas v ON v.id=s.venta_id JOIN usuarios u ON u.id=s.usuario_solicita_id WHERE s.usuario_solicita_id=? ORDER BY s.id DESC", (session["usuario_id"],)).fetchall()
+        if tiene_permiso(rol, "resolver_solicitudes") or tiene_permiso(rol, "consultar_reportes_auditoria"):
+            lista = conn.execute("""SELECT s.*, v.fecha as venta_fecha, v.total, u.usuario FROM solicitudes_anulacion s JOIN ventas v ON v.id=s.venta_id JOIN usuarios u ON u.id=s.usuario_solicita_id ORDER BY s.id DESC""").fetchall()
         else:
-            lista = conn.execute("SELECT s.*, v.fecha as venta_fecha, v.total, u.usuario FROM solicitudes_anulacion s JOIN ventas v ON v.id=s.venta_id JOIN usuarios u ON u.id=s.usuario_solicita_id ORDER BY s.id DESC").fetchall()
+            lista = conn.execute("""SELECT s.*, v.fecha as venta_fecha, v.total, u.usuario FROM solicitudes_anulacion s JOIN ventas v ON v.id=s.venta_id JOIN usuarios u ON u.id=s.usuario_solicita_id WHERE s.usuario_solicita_id=? ORDER BY s.id DESC""", (session["usuario_id"],)).fetchall()
     return render_template("solicitudes.html", solicitudes=lista)
 
+
 @app.route("/ventas/<int:venta_id>/solicitar_anulacion", methods=["POST"])
-@requiere_rol("admin", "vendedor")
+@requiere_permiso("solicitar_anulacion")
 def solicitar_anulacion(venta_id):
     tipo = request.form.get("tipo") # anulacion o devolucion
     motivo = request.form.get("motivo", "").strip()
@@ -996,21 +1237,26 @@ def solicitar_anulacion(venta_id):
         flash("Tipo de solicitud inválido.", "danger")
         return redirect(url_for("detalle_venta", venta_id=venta_id))
         
+    rol = session.get("rol")
     with get_db() as conn:
         venta = conn.execute("SELECT * FROM ventas WHERE id=?", (venta_id,)).fetchone()
         if not venta or venta["estado"] != "completada":
             flash("Venta inválida o ya procesada.", "danger")
             return redirect(url_for("detalle_venta", venta_id=venta_id))
             
-        # Registramos únicamente la solicitud sin romper la restricción CHECK de la venta
+        if rol != "admin" and not tiene_permiso(rol, "consultar_todas_ventas"):
+            if venta["usuario_id"] != session.get("usuario_id"):
+                abort(403, "Solo puedes solicitar anulación sobre tus propias ventas.")
+                
         conn.execute("INSERT INTO solicitudes_anulacion (venta_id, tipo, usuario_solicita_id, motivo) VALUES (?,?,?,?)", 
                      (venta_id, tipo, session["usuario_id"], motivo))
     
-    flash("Solicitud enviada a bodega/administración.", "success")
+    flash("Solicitud enviada a supervisión/administración.", "success")
     return redirect(url_for("detalle_venta", venta_id=venta_id))
 
+
 @app.route("/solicitudes/<int:solicitud_id>/resolver", methods=["POST"])
-@requiere_rol("admin", "bodega")
+@requiere_permiso("resolver_solicitudes")
 def resolver_solicitud(solicitud_id):
     accion = request.form.get("accion") # aprobar o rechazar
     from database import registrar_movimiento

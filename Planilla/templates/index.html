@@ -23,11 +23,13 @@
                 <h3 class="fw-bold text-slate-800 mb-1">Colaboradores</h3>
                 <p class="text-muted small mb-0">Gestión de expedientes y cálculo automático de deducciones de ley.</p>
             </div>
+            {% if puede('gestionar_empleados') %}
             <div class="col-md-6 text-md-end">
                 <a href="/empleado/nuevo" class="btn btn-primary btn-action shadow-sm px-3 py-2">
                     <i class="bi bi-person-plus-fill me-1"></i> Registrar Empleado
                 </a>
             </div>
+            {% endif %}
         </div>
 
         <!-- BARRA DE FILTRADO POR FECHA -->
@@ -122,7 +124,7 @@
 
                         <!-- Columna 3: Botones de Acción -->
                         <div class="col-lg-3 d-flex flex-wrap gap-2 justify-content-lg-end align-items-center">
-                            {% if emp.activo == 1 %}
+                            {% if emp.activo == 1 and puede('procesar_planilla') %}
                                 <a href="/agregar-planilla/{{emp.id}}" class="btn btn-success btn-action w-100 w-sm-auto">
                                     <i class="bi bi-cash-stack me-1"></i> Pagar
                                 </a>
@@ -132,6 +134,7 @@
                                 <i class="bi bi-clock-history"></i>
                             </a>
 
+                            {% if puede('gestionar_empleados') %}
                             <a href="/empleado/editar/{{emp.id}}" class="btn btn-outline-secondary btn-action" title="Editar Expediente">
                                 <i class="bi bi-pencil"></i>
                             </a>
@@ -150,6 +153,7 @@
                                         <i class="bi bi-person-check"></i>
                                     </button>
                                 </form>
+                            {% endif %}
                             {% endif %}
                         </div>
 

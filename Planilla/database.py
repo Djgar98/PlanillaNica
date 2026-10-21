@@ -24,8 +24,33 @@ def _agregar_columna_si_falta(conn, tabla, columna, definicion):
         conn.execute(f"ALTER TABLE {tabla} ADD COLUMN {columna} {definicion}")
 
 
+def _migrar_roles_usuarios_si_requerido():
+    """Migra la tabla usuarios para soportar los 8 roles de la monografía de forma atómica y segura."""
+    raw_conn = sqlite3.connect(DATABASE, timeout=20)
+    try:
+        raw_conn.execute("PRAGMA foreign_keys = OFF")
+        row = raw_conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='usuarios'").fetchone()
+        if row and row[0] and "'contabilidad'" not in row[0]:
+            raw_conn.execute("""CREATE TABLE IF NOT EXISTS usuarios_temp (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, usuario TEXT NOT NULL UNIQUE,
+                nombre TEXT NOT NULL, password_hash TEXT NOT NULL,
+                rol TEXT NOT NULL DEFAULT 'vendedor' CHECK (rol IN ('admin','rrhh','vendedor','bodega','contabilidad','compras','supervisor','auditor')),
+                empleado_id INTEGER,
+                activo INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0,1)),
+                creado_en TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (empleado_id) REFERENCES empleados(id))""")
+            raw_conn.execute("""INSERT INTO usuarios_temp (id, usuario, nombre, password_hash, rol, empleado_id, activo, creado_en)
+                                SELECT id, usuario, nombre, password_hash, rol, empleado_id, activo, creado_en FROM usuarios""")
+            raw_conn.execute("DROP TABLE usuarios")
+            raw_conn.execute("ALTER TABLE usuarios_temp RENAME TO usuarios")
+            raw_conn.commit()
+    finally:
+        raw_conn.close()
+
+
 def init_db():
     """Crea y actualiza el esquema local sin eliminar datos existentes."""
+    _migrar_roles_usuarios_si_requerido()
     with get_db() as conn:
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("""CREATE TABLE IF NOT EXISTS cargos (
@@ -95,7 +120,7 @@ def init_db():
         conn.execute("""CREATE TABLE IF NOT EXISTS usuarios (
             id INTEGER PRIMARY KEY AUTOINCREMENT, usuario TEXT NOT NULL UNIQUE,
             nombre TEXT NOT NULL, password_hash TEXT NOT NULL,
-            rol TEXT NOT NULL DEFAULT 'vendedor' CHECK (rol IN ('admin','vendedor','rrhh','bodega')),
+            rol TEXT NOT NULL DEFAULT 'vendedor' CHECK (rol IN ('admin','rrhh','vendedor','bodega','contabilidad','compras','supervisor','auditor')),
             empleado_id INTEGER,
             activo INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0,1)),
             creado_en TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,

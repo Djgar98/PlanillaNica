@@ -42,9 +42,11 @@
                 <a href="{{ url_for('modulo_aguinaldo') }}" class="btn btn-outline-success btn-sm px-3 py-2 fw-medium shadow-sm">
                     <i class="bi bi-gift-fill me-1"></i> Cálculo de Aguinaldo
                 </a>
+                {% if puede('procesar_planilla') %}
                 <a href="{{ url_for('nuevo_periodo_planilla') }}" class="btn btn-primary btn-sm px-3 py-2 fw-semibold shadow-sm">
                     <i class="bi bi-plus-circle-fill me-1"></i> Abrir Nuevo Período
                 </a>
+                {% endif %}
             </div>
         </div>
 
@@ -232,7 +234,7 @@
                             <!-- Acciones -->
                             <td class="text-end pe-4">
                                 <div class="btn-group btn-group-sm">
-                                    {% if p.estado != 'pagado_completo' %}
+                                    {% if p.estado != 'pagado_completo' and puede('procesar_planilla') %}
                                     <a href="{{ url_for('registrar_abono', periodo_id=p.id) }}" class="btn btn-outline-success btn-sm" title="Registrar Abono Parcial">
                                         <i class="bi bi-cash-coin me-1"></i> Abono
                                     </a>

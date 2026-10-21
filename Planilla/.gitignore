@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.db-shm
+*.db-wal
+.env
+.venv/

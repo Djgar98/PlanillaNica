@@ -30,7 +30,7 @@
                     </a>
                 {% endif %}
 
-               {% if session.get('rol') in ['admin', 'bodega'] %}
+               {% if puede('gestionar_productos') %}
                 <a class="btn btn-primary btn-sm" href="{{ url_for('nuevo_producto') }}">
                     <i class="bi bi-plus-lg"></i> Nuevo producto
                 </a>
@@ -74,9 +74,15 @@
                             </td>
                             <td>{{ 'Activo' if p.activo else 'Baja' }}</td>
                             <td class="text-end">
-                                {% if session.get('rol') in ['admin', 'bodega'] %}
+                                {% if puede('gestionar_productos') %}
                                 <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('editar_producto', producto_id=p.id) }}">Editar</a>
+                                {% endif %}
+
+                                {% if puede('registrar_entradas') or puede('ajustar_existencias') %}
                                 <button class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#mov{{ p.id }}">Stock</button>
+                                {% endif %}
+
+                                {% if puede('gestionar_productos') %}
                                 <form class="d-inline" method="post" action="{{ url_for('estado_producto', producto_id=p.id, estado=0 if p.activo else 1) }}">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                                     <button class="btn btn-sm btn-outline-{{ 'danger' if p.activo else 'success' }}">
@@ -87,15 +93,19 @@
                             </td>
                         </tr>
                         
-                       {% if session.get('rol') in ['admin', 'bodega'] %}
+                       {% if puede('registrar_entradas') or puede('ajustar_existencias') %}
                         <tr class="collapse" id="mov{{ p.id }}">
                             <td colspan="6">
                                 <form method="post" action="{{ url_for('movimiento_producto', producto_id=p.id) }}" class="row g-2">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                                    <div class="col-md-2">
+                                    <div class="col-md-3">
                                         <select name="tipo" class="form-select">
-                                            <option value="entrada">Entrada</option>
-                                            <option value="ajuste">Salida por ajuste</option>
+                                            {% if puede('registrar_entradas') %}
+                                            <option value="entrada">📥 Entrada de Existencias</option>
+                                            {% endif %}
+                                            {% if puede('ajustar_existencias') %}
+                                            <option value="ajuste">⚙️ Salida por ajuste</option>
+                                            {% endif %}
                                         </select>
                                     </div>
                                     <div class="col-md-2">

@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Contable y Financiero - PlanillaNica</title>
+    <!-- Google Fonts & Bootstrap 5 -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .kpi-stat-card {
+            background: #ffffff;
+            border-radius: 14px;
+            border: 1px solid #e2e8f0;
+            padding: 1.35rem 1.25rem;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .kpi-stat-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.08);
+        }
+        .kpi-icon-badge {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+        }
+        .action-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 1.25rem;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+            height: 100%;
+        }
+        .action-card:hover {
+            border-color: #3b82f6;
+            background: #f8fafc;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px -4px rgba(59, 130, 246, 0.12);
+            color: inherit;
+        }
+        .badge-soft-success {
+            background-color: #dcfce7;
+            color: #15803d;
+        }
+        .badge-soft-danger {
+            background-color: #fee2e2;
+            color: #b91c1c;
+        }
+        .badge-soft-primary {
+            background-color: #dbeafe;
+            color: #1d4ed8;
+        }
+        .badge-soft-warning {
+            background-color: #fef3c7;
+            color: #b45309;
+        }
+        .table-custom-small th {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #64748b;
+            font-weight: 600;
+            background-color: #f8fafc;
+        }
+        .table-custom-small td {
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+
+    {% include '_nav.html' %}
+
+    <main class="container pb-5">
+        <!-- HEADER / BIENVENIDA Y FILTRO DE MES -->
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+            <div>
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="badge bg-warning text-dark px-2.5 py-1.5 fw-semibold">
+                        <i class="bi bi-calculator me-1"></i> Módulo Contabilidad & Finanzas
+                    </span>
+                    <span class="text-muted small">Período: <strong>{{ mes_nombre }}</strong></span>
+                </div>
+                <h3 class="fw-bold text-slate-800 mb-0">Panel Financiero & Contable</h3>
+                <p class="text-muted small mb-0">Supervisión integrada de ingresos comerciales, costos laborales de nómina y retenciones de ley.</p>
+            </div>
+
+            <!-- Selector de Período -->
+            <div class="bg-white p-2 border rounded-3 shadow-sm d-flex align-items-center gap-2">
+                <i class="bi bi-calendar3 text-primary ms-1"></i>
+                <form method="GET" action="{{ url_for('contabilidad_index') }}" class="d-flex align-items-center gap-2 m-0">
+                    <label for="mesSelector" class="form-label small fw-semibold text-muted mb-0 me-1">Mes:</label>
+                    <input type="month" id="mesSelector" name="mes" value="{{ mes }}" class="form-control form-control-sm border-0 bg-light" onchange="this.form.submit()">
+                    <noscript><button type="submit" class="btn btn-sm btn-primary">Ver</button></noscript>
+                </form>
+            </div>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- 4 TARJETAS KPI PRINCIPALES -->
+        <div class="row g-3 mb-4">
+            <!-- 1. Ingresos por Ventas -->
+            <div class="col-sm-6 col-lg-3">
+                <div class="kpi-stat-card shadow-sm border-top border-4 border-success">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <span class="text-muted small fw-semibold text-uppercase">Ingresos Ventas</span>
+                            <h4 class="fw-bold text-success mb-0 mt-1">{{ total_ingresos | moneda }}</h4>
+                        </div>
+                        <div class="kpi-icon-badge bg-success-subtle text-success">
+                            <i class="bi bi-cash-stack"></i>
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
+                        <small class="text-muted"><i class="bi bi-check2-circle text-success me-1"></i>{{ kpis_ventas.cant_completadas }} completadas</small>
+                        <a href="{{ url_for('reporte_ventas') }}?fecha_desde={{ mes }}-01" class="small fw-semibold text-decoration-none text-success">Ver Reporte &rarr;</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. Costo Total Nómina -->
+            <div class="col-sm-6 col-lg-3">
+                <div class="kpi-stat-card shadow-sm border-top border-4 border-primary">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <span class="text-muted small fw-semibold text-uppercase">Costo Nómina Empresa</span>
+                            <h4 class="fw-bold text-primary mb-0 mt-1">{{ costo_total_empleador | moneda }}</h4>
+                        </div>
+                        <div class="kpi-icon-badge bg-primary-subtle text-primary">
+                            <i class="bi bi-people"></i>
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
+                        <small class="text-muted"><i class="bi bi-wallet2 text-primary me-1"></i>Neto: {{ total_nomina_neta | moneda }}</small>
+                        <a href="{{ url_for('reporte_planilla_mensual') }}?mes={{ mes }}" class="small fw-semibold text-decoration-none text-primary">Ver Nómina &rarr;</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. Balance Operativo -->
+            <div class="col-sm-6 col-lg-3">
+                <div class="kpi-stat-card shadow-sm border-top border-4 {% if balance_operativo >= 0 %}border-info{% else %}border-danger{% endif %}">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <span class="text-muted small fw-semibold text-uppercase">Margen Operativo</span>
+                            <h4 class="fw-bold {% if balance_operativo >= 0 %}text-info-emphasis{% else %}text-danger{% endif %} mb-0 mt-1">
+                                {{ balance_operativo | moneda }}
+                            </h4>
+                        </div>
+                        <div class="kpi-icon-badge {% if balance_operativo >= 0 %}bg-info-subtle text-info-emphasis{% else %}bg-danger-subtle text-danger{% endif %}">
+                            <i class="bi bi-pie-chart"></i>
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
+                        {% if balance_operativo >= 0 %}
+                            <span class="badge badge-soft-success small"><i class="bi bi-arrow-up-right me-1"></i>Superávit Estimado</span>
+                        {% else %}
+                            <span class="badge badge-soft-danger small"><i class="bi bi-arrow-down-right me-1"></i>Déficit Estimado</span>
+                        {% endif %}
+                        <small class="text-muted">Ventas - Nómina</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. Obligaciones INSS / DGI -->
+            <div class="col-sm-6 col-lg-3">
+                <div class="kpi-stat-card shadow-sm border-top border-4 border-warning">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <span class="text-muted small fw-semibold text-uppercase">Cargas INSS & IR</span>
+                            <h4 class="fw-bold text-dark mb-0 mt-1">{{ total_obligaciones_fiscales | moneda }}</h4>
+                        </div>
+                        <div class="kpi-icon-badge bg-warning-subtle text-warning">
+                            <i class="bi bi-bank"></i>
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
+                        <small class="text-muted">Patronal: {{ total_cargas_patronales | moneda }}</small>
+                        <small class="text-muted">IR: {{ kpis_nomina.total_ir | moneda }}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MÓDULOS Y REPORTES CONTABLES RÁPIDOS -->
+        <div class="mb-4">
+            <h5 class="fw-bold text-slate-800 mb-3"><i class="bi bi-folder2-open text-primary me-2"></i>Herramientas & Reportes Oficiales</h5>
+            <div class="row g-3">
+                <div class="col-md-6 col-lg-3">
+                    <a href="{{ url_for('reporte_planilla_mensual') }}?mes={{ mes }}" class="action-card shadow-sm">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="p-3 rounded-3 bg-primary-subtle text-primary fs-4">
+                                <i class="bi bi-file-earmark-bar-graph"></i>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold mb-1 text-dark">Planilla Mensual</h6>
+                                <p class="text-muted small mb-0">Detalle salarial con deducciones INSS e IR para firma y archivo.</p>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+
+                <div class="col-md-6 col-lg-3">
+                    <a href="{{ url_for('reporte_ventas') }}" class="action-card shadow-sm">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="p-3 rounded-3 bg-success-subtle text-success fs-4">
+                                <i class="bi bi-graph-up"></i>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold mb-1 text-dark">Reporte de Ventas</h6>
+                                <p class="text-muted small mb-0">Auditoría de ingresos, ventas por asesor y anulaciones.</p>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+
+                <div class="col-md-6 col-lg-3">
+                    <a href="{{ url_for('modulo_aguinaldo') }}" class="action-card shadow-sm">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="p-3 rounded-3 bg-warning-subtle text-warning-emphasis fs-4">
+                                <i class="bi bi-gift-fill"></i>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold mb-1 text-dark">Aguinaldo (Ley 185)</h6>
+                                <p class="text-muted small mb-0">Seguimiento de provisiones del treceavo mes del período fiscal.</p>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+
+                <div class="col-md-6 col-lg-3">
+                    <a href="{{ url_for('pagos_diferidos') }}" class="action-card shadow-sm">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="p-3 rounded-3 bg-info-subtle text-info-emphasis fs-4">
+                                <i class="bi bi-wallet2"></i>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold mb-1 text-dark">Pagos Diferidos</h6>
+                                <p class="text-muted small mb-0">Control de abonos y saldos pendientes de planilla.</p>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- DOS PANELES DE ACTIVIDAD RECIENTE (TABLAS) -->
+        <div class="row g-4">
+            <!-- TABLA 1: ÚLTIMAS NÓMINAS REGISTRADAS -->
+            <div class="col-lg-6">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center border-bottom">
+                        <h6 class="fw-bold mb-0 text-slate-800">
+                            <i class="bi bi-person-check text-primary me-2"></i>Nóminas Recientes Procesadas
+                        </h6>
+                        <a href="{{ url_for('reporte_planilla_mensual') }}?mes={{ mes }}" class="btn btn-outline-primary btn-sm rounded-pill px-3">
+                            Ver Reporte
+                        </a>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover table-custom-small align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Colaborador</th>
+                                    <th>Fecha Pago</th>
+                                    <th class="text-end">Bruto</th>
+                                    <th class="text-end">Neto a Pagar</th>
+                                    <th class="text-center">Recibo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for p in ultimos_pagos %}
+                                <tr>
+                                    <td>
+                                        <div class="fw-semibold text-dark">{{ p.primer_nombre }} {{ p.primer_apellido }}</div>
+                                        <small class="text-muted">{{ p.cargo_nombre or 'General' }}</small>
+                                    </td>
+                                    <td><small class="text-muted">{{ p.fecha[:10] if p.fecha else 'N/A' }}</small></td>
+                                    <td class="text-end text-muted">{{ p.salario_bruto | moneda }}</td>
+                                    <td class="text-end fw-bold text-success">{{ p.salario_neto | moneda }}</td>
+                                    <td class="text-center">
+                                        <a href="{{ url_for('recibo_planilla', planilla_id=p.id) }}" target="_blank" class="btn btn-sm btn-light border text-primary" title="Comprobante">
+                                            <i class="bi bi-printer"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted py-4">No se han registrado pagos en nómina recientemente.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="card-footer bg-light py-2 text-center border-top-0">
+                        <small class="text-muted">Total retenciones registradas en el mes: <strong>{{ (kpis_nomina.total_inss_lab + kpis_nomina.total_ir) | moneda }}</strong></small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TABLA 2: ÚLTIMAS VENTAS REALIZADAS -->
+            <div class="col-lg-6">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center border-bottom">
+                        <h6 class="fw-bold mb-0 text-slate-800">
+                            <i class="bi bi-receipt-cutoff text-success me-2"></i>Últimas Ventas & Facturación
+                        </h6>
+                        <a href="{{ url_for('ventas') }}" class="btn btn-outline-success btn-sm rounded-pill px-3">
+                            Ver Todas
+                        </a>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover table-custom-small align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th># ID</th>
+                                    <th>Cliente</th>
+                                    <th>Vendedor</th>
+                                    <th class="text-center">Estado</th>
+                                    <th class="text-end">Monto Total</th>
+                                    <th class="text-center">Detalle</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for v in ultimas_ventas %}
+                                <tr>
+                                    <td class="fw-bold">#{{ v.id }}</td>
+                                    <td>
+                                        <span class="text-dark">{{ v.cliente or 'Consumidor Final' }}</span>
+                                        <div class="text-muted" style="font-size: 0.75rem;">{{ v.fecha[:16] }}</div>
+                                    </td>
+                                    <td><span class="badge text-bg-light border text-muted">{{ v.usuario }}</span></td>
+                                    <td class="text-center">
+                                        {% if v.estado == 'completada' %}
+                                            <span class="badge badge-soft-success">Completada</span>
+                                        {% elif v.estado == 'anulada' %}
+                                            <span class="badge badge-soft-danger">Anulada</span>
+                                        {% elif v.estado == 'devuelta' %}
+                                            <span class="badge badge-soft-warning">Devuelta</span>
+                                        {% else %}
+                                            <span class="badge text-bg-secondary">{{ v.estado }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end fw-bold {% if v.estado == 'completada' %}text-dark{% else %}text-muted text-decoration-line-through{% endif %}">
+                                        {{ v.total | moneda }}
+                                    </td>
+                                    <td class="text-center">
+                                        <a href="{{ url_for('detalle_venta', venta_id=v.id) }}" class="btn btn-sm btn-light border text-secondary" title="Ver Detalle">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted py-4">No hay ventas registradas en el sistema.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="card-footer bg-light py-2 text-center border-top-0">
+                        <small class="text-muted">Total facturado en el mes: <strong>{{ total_ingresos | moneda }}</strong></small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
