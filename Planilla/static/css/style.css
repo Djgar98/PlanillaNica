@@ -56,3 +56,34 @@ body {
     border-color: #2563eb;
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
+
+/* Slate Color Palette */
+.text-slate-900 { color: #0f172a !important; }
+.text-slate-800 { color: #1e293b !important; }
+.text-slate-700 { color: #334155 !important; }
+.text-slate-600 { color: #475569 !important; }
+.text-slate-500 { color: #64748b !important; }
+.text-slate-400 { color: #94a3b8 !important; }
+.text-slate-300 { color: #cbd5e1 !important; }
+
+/* Subtle Pill Badges */
+.badge-subtle-primary { background-color: rgba(37, 99, 235, 0.1); color: #1d4ed8; }
+.badge-subtle-success { background-color: rgba(22, 163, 74, 0.1); color: #15803d; }
+.badge-subtle-warning { background-color: rgba(217, 119, 6, 0.12); color: #b45309; }
+.badge-subtle-danger { background-color: rgba(220, 38, 38, 0.1); color: #b91c1c; }
+.badge-subtle-info { background-color: rgba(8, 145, 178, 0.1); color: #0e7490; }
+
+/* Interactive Hover Lift */
+.hover-lift {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Table Enhancements */
+.table th {
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}

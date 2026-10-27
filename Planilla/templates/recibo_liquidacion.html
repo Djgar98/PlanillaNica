@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acta de Finiquito y Liquidación - {{ liq.codigo }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: #212529;
+            background-color: #f4f6f9;
+        }
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .document-container {
+            max-width: 900px;
+            margin: 30px auto;
+            background: #ffffff;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+            border-radius: 8px;
+            padding: 40px 50px;
+        }
+        .table-liq th {
+            background-color: #f8f9fa;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid #dee2e6;
+        }
+        .table-liq td {
+            vertical-align: middle;
+            font-size: 0.95rem;
+        }
+        .signature-box {
+            margin-top: 55px;
+            padding-top: 10px;
+            border-top: 1px solid #333;
+            text-align: center;
+        }
+        .badge-status {
+            font-size: 0.85rem;
+            padding: 5px 12px;
+            border-radius: 20px;
+        }
+
+        /* PRINT STYLES */
+        @media print {
+            body {
+                background: #ffffff !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .document-container {
+                box-shadow: none !important;
+                margin: 0 !important;
+                max-width: 100% !important;
+                padding: 20px 25px !important;
+                border-radius: 0 !important;
+            }
+            .table-liq th {
+                background-color: #f1f1f1 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .signature-box {
+                margin-top: 45px !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- BOTONES SUPERIORES (NO IMPRIMIBLES) -->
+    <div class="no-print bg-white border-bottom py-2 px-4 shadow-sm mb-3">
+        <div class="max-width d-flex justify-content-between align-items-center" style="max-width: 900px; margin: 0 auto;">
+            <div>
+                <a href="{{ url_for('liquidaciones') }}" class="btn btn-outline-secondary btn-sm me-2">
+                    <i class="bi bi-arrow-left me-1"></i> Volver a Liquidaciones
+                </a>
+                <a href="{{ url_for('vacaciones') }}" class="btn btn-outline-warning btn-sm text-dark">
+                    <i class="bi bi-sun-fill me-1"></i> Control de Vacaciones
+                </a>
+            </div>
+            <div class="d-flex gap-2">
+                <button onclick="window.print()" class="btn btn-primary btn-sm fw-semibold shadow-sm">
+                    <i class="bi bi-printer-fill me-1"></i> Imprimir / Guardar PDF
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- DOCUMENTO OFICIAL -->
+    <div class="document-container">
+        <!-- ENCABEZADO FORMAL -->
+        <div class="row align-items-center border-bottom pb-3 mb-4">
+            <div class="col-8">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="fs-4 fw-bold text-dark">PLANILLANICA S.A.</span>
+                    <span class="badge bg-secondary-subtle text-secondary small">RUC: J0310000000001</span>
+                </div>
+                <h5 class="fw-bold text-danger text-uppercase mb-0">Acta de Finiquito y Liquidación Final</h5>
+                <p class="text-muted small mb-0">Conforme a la Ley No. 185 (Código del Trabajo de Nicaragua) y Ley No. 476</p>
+            </div>
+            <div class="col-4 text-end">
+                <div class="font-mono fw-bold fs-5 text-dark">{{ liq.codigo }}</div>
+                <div class="small text-muted">Fecha Emisión: <strong>{{ liq.fecha_salida }}</strong></div>
+                <div>
+                    <span class="badge bg-success-subtle text-success border border-success-subtle badge-status text-uppercase mt-1">
+                        {{ liq.estado }}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- DATOS DEL COLABORADOR Y RELACIÓN LABORAL -->
+        <div class="card bg-light border-0 rounded-3 p-3 mb-4">
+            <div class="row g-2 small">
+                <div class="col-md-6">
+                    <strong class="text-muted">Nombre del Trabajador:</strong>
+                    <div class="fs-6 fw-bold text-dark">{{ liq.empleado_nombre }}</div>
+                </div>
+                <div class="col-md-3">
+                    <strong class="text-muted">Cédula de Identidad:</strong>
+                    <div class="font-mono fw-semibold">{{ liq.empleado_cedula }}</div>
+                </div>
+                <div class="col-md-3">
+                    <strong class="text-muted">N° Afiliación INSS:</strong>
+                    <div class="font-mono fw-semibold">{{ liq.numero_inss or 'N/D' }}</div>
+                </div>
+
+                <div class="col-md-6 mt-2">
+                    <strong class="text-muted">Cargo / Ocupación:</strong>
+                    <div>{{ liq.cargo_nombre or 'Colaborador General' }}</div>
+                </div>
+                <div class="col-md-6 mt-2">
+                    <strong class="text-muted">Departamento / Área:</strong>
+                    <div>{{ liq.departamento_nombre or 'Operaciones' }}</div>
+                </div>
+
+                <div class="col-12 mt-2 pt-2 border-top">
+                    <div class="row g-2">
+                        <div class="col-md-3">
+                            <span class="text-muted">Fecha de Ingreso:</span>
+                            <div class="font-mono fw-semibold">{{ liq.fecha_ingreso }}</div>
+                        </div>
+                        <div class="col-md-3">
+                            <span class="text-muted">Fecha de Salida:</span>
+                            <div class="font-mono fw-semibold">{{ liq.fecha_salida }}</div>
+                        </div>
+                        <div class="col-md-3">
+                            <span class="text-muted">Tiempo de Servicio:</span>
+                            <div class="fw-semibold text-primary">
+                                {{ liq.anios_servicio }}a, {{ liq.meses_servicio }}m, {{ liq.dias_servicio }}d
+                                <span class="text-muted font-mono" style="font-size: 0.75rem;">({{ liq.total_dias_trabajados }} días)</span>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <span class="text-muted">Salario Base Mensual:</span>
+                            <div class="font-mono fw-bold text-dark">C$ {{ '{:,.2f}'.format(liq.salario_base_mensual) }}</div>
+                            <div class="text-muted" style="font-size: 0.72rem;">Diario: C$ {{ '{:,.2f}'.format(liq.salario_diario) }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-12 mt-2 pt-2 border-top">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <span class="text-muted">Causal de Terminación:</span>
+                            <span class="badge {{ 'bg-danger' if liq.motivo == 'despido' else 'bg-primary' }} text-uppercase ms-1">
+                                {{ 'Despido Injustificado (Art. 45)' if liq.motivo == 'despido' else 'Renuncia Voluntaria' }}
+                            </span>
+                        </div>
+                        <div class="col-md-6 text-md-end">
+                            <span class="text-muted">Régimen Jurídico:</span>
+                            <strong class="text-dark">{{ 'Sector Privado (Ley 185)' if liq.regimen == 'privada' else 'Sector Público (Ley 476)' }}</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TABLA DESGLOSADA DE LIQUIDACIÓN -->
+        <h6 class="fw-bold text-dark mb-2 text-uppercase small letter-spacing">
+            I. Liquidación y Cómputo de Prestaciones Sociales
+        </h6>
+        <div class="table-responsive mb-4">
+            <table class="table table-bordered table-liq mb-0">
+                <thead>
+                    <tr>
+                        <th style="width: 50%;">Concepto de Pago / Prestación</th>
+                        <th style="width: 25%;" class="text-center">Cálculo / Base</th>
+                        <th style="width: 25%;" class="text-end">Monto (C$)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Salario Pendiente -->
+                    <tr>
+                        <td>
+                            <div class="fw-semibold text-dark">Salario Ordinario Pendiente de Pago</div>
+                            <div class="text-muted small">Días laborados devengados en el último período</div>
+                        </td>
+                        <td class="text-center font-mono small">
+                            {{ liq.dias_salario_pendiente }} días &times; C$ {{ '{:,.2f}'.format(liq.salario_diario) }}
+                        </td>
+                        <td class="text-end font-mono fw-semibold">
+                            C$ {{ '{:,.2f}'.format(liq.monto_salario_pendiente) }}
+                        </td>
+                    </tr>
+
+                    <!-- Vacaciones Pendientes -->
+                    <tr>
+                        <td>
+                            <div class="fw-semibold text-dark">Vacaciones Proporcionales y No Gozadas</div>
+                            <div class="text-muted small">Art. 76 Código del Trabajo (30 días por año de servicio acumulado menos días gozados)</div>
+                        </td>
+                        <td class="text-center font-mono small">
+                            {{ '{:,.2f}'.format(liq.dias_vacaciones_pendientes) }} días &times; C$ {{ '{:,.2f}'.format(liq.salario_diario) }}
+                        </td>
+                        <td class="text-end font-mono fw-semibold">
+                            C$ {{ '{:,.2f}'.format(liq.monto_vacaciones) }}
+                        </td>
+                    </tr>
+
+                    <!-- Aguinaldo Proporcional -->
+                    <tr>
+                        <td>
+                            <div class="fw-semibold text-dark">Décimo Tercer Mes / Aguinaldo Proporcional</div>
+                            <div class="text-muted small">Arts. 93 y 94 Código del Trabajo (Exento de retención de INSS e IR, Art. 97)</div>
+                        </td>
+                        <td class="text-center font-mono small">
+                            {{ '{:,.2f}'.format(liq.dias_aguinaldo_proporcional) }} días &times; C$ {{ '{:,.2f}'.format(liq.salario_diario) }}
+                        </td>
+                        <td class="text-end font-mono fw-semibold">
+                            C$ {{ '{:,.2f}'.format(liq.monto_aguinaldo) }}
+                        </td>
+                    </tr>
+
+                    <!-- Indemnización Art. 45 -->
+                    <tr class="{{ 'table-light' if not liq.aplica_indemnizacion or liq.monto_indemnizacion == 0 else '' }}">
+                        <td>
+                            <div class="fw-semibold text-dark">Indemnización por Años de Servicio</div>
+                            <div class="text-muted small">
+                                Art. 45 Código del Trabajo (1 mes por año 1-3, 20 días/año subsiguientes, máx 5 meses)
+                                {% if not liq.aplica_indemnizacion %}
+                                    <span class="text-danger fw-semibold">(No aplica en Renuncia Privada)</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td class="text-center font-mono small">
+                            {% if liq.aplica_indemnizacion and liq.monto_indemnizacion > 0 %}
+                                {{ '{:,.2f}'.format(liq.meses_indemnizacion) }} meses de salario
+                            {% else %}
+                                0.00 meses
+                            {% endif %}
+                        </td>
+                        <td class="text-end font-mono fw-semibold {{ 'text-muted' if not liq.aplica_indemnizacion else '' }}">
+                            C$ {{ '{:,.2f}'.format(liq.monto_indemnizacion) }}
+                        </td>
+                    </tr>
+
+                    <!-- TOTAL BRUTO -->
+                    <tr class="table-light">
+                        <td colspan="2" class="fw-bold text-dark text-uppercase">Total Devengado Bruto</td>
+                        <td class="text-end font-mono fw-bold fs-6 text-dark">
+                            C$ {{ '{:,.2f}'.format(liq.total_bruto) }}
+                        </td>
+                    </tr>
+
+                    <!-- DEDUCCIONES -->
+                    <tr>
+                        <td colspan="3" class="bg-white pt-3 pb-1 border-0">
+                            <span class="fw-bold text-danger text-uppercase small">II. Deducciones Legales y Autorizadas</span>
+                        </td>
+                    </tr>
+
+                    <!-- INSS Salario Pendiente -->
+                    <tr>
+                        <td>
+                            <div class="text-muted">INSS Laboral (7.00%)</div>
+                            <div class="text-muted small">Aplicable únicamente sobre el salario ordinario pendiente devengado</div>
+                        </td>
+                        <td class="text-center font-mono small">
+                            7% s/ C$ {{ '{:,.2f}'.format(liq.monto_salario_pendiente) }}
+                        </td>
+                        <td class="text-end font-mono text-danger">
+                            - C$ {{ '{:,.2f}'.format(liq.inss_salario_pendiente) }}
+                        </td>
+                    </tr>
+
+                    <!-- Otras Deducciones -->
+                    {% if liq.otras_deducciones > 0 %}
+                    <tr>
+                        <td>
+                            <div class="text-muted">Otras Deducciones Autorizadas</div>
+                            <div class="text-muted small">{{ liq.motivo_deducciones or 'Préstamo o anticipo pendiente' }}</div>
+                        </td>
+                        <td class="text-center font-mono small">Deducción convenida</td>
+                        <td class="text-end font-mono text-danger">
+                            - C$ {{ '{:,.2f}'.format(liq.otras_deducciones) }}
+                        </td>
+                    </tr>
+                    {% endif %}
+
+                    <!-- TOTAL DEDUCCIONES -->
+                    <tr class="table-light">
+                        <td colspan="2" class="fw-bold text-muted text-uppercase">Total Deducciones Aplicadas</td>
+                        <td class="text-end font-mono fw-bold text-danger">
+                            - C$ {{ '{:,.2f}'.format(liq.total_deducciones) }}
+                        </td>
+                    </tr>
+
+                    <!-- TOTAL NETO A PAGAR -->
+                    <tr class="table-danger border-top border-2 border-danger">
+                        <td colspan="2" class="fw-bold fs-6 text-danger text-uppercase">
+                            Total Neto a Pagar al Colaborador
+                        </td>
+                        <td class="text-end font-mono fw-bold fs-5 text-danger">
+                            C$ {{ '{:,.2f}'.format(liq.total_neto) }}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        {% if liq.observaciones %}
+        <div class="mb-4 small">
+            <strong>Observaciones:</strong> <span class="text-muted">{{ liq.observaciones }}</span>
+        </div>
+        {% endif %}
+
+        <!-- CLÁUSULA FORMAL DE FINIQUITO Y PAZ Y SALVO -->
+        <div class="card border border-secondary-subtle rounded-3 p-3 mb-4 bg-light">
+            <h6 class="fw-bold text-dark small text-uppercase mb-2">Cláusula de Finiquito y Finiquito Legal (Paz y Salvo)</h6>
+            <p class="small text-muted mb-2 text-justify" style="line-height: 1.5;">
+                Por medio del presente documento, el trabajador <strong>{{ liq.empleado_nombre }}</strong> declara haber recibido
+                de <strong>PLANILLANICA S.A.</strong> la cantidad neta de <strong>C$ {{ '{:,.2f}'.format(liq.total_neto) }}</strong>
+                a su entera y absoluta conformidad, en concepto de pago de todas sus prestaciones sociales y derechos laborales derivados
+                de su contrato de trabajo que hoy se da por concluido por causa de <strong>{{ 'Despido Injustificado' if liq.motivo == 'despido' else 'Renuncia Voluntaria' }}</strong>.
+            </p>
+            <p class="small text-muted mb-0 text-justify" style="line-height: 1.5;">
+                En consecuencia, el trabajador otorga el más amplio y formal <strong>FINIQUITO LEGAL</strong> a la empresa, declarando no tener
+                ningún reclamo posterior de índole laboral, civil, administrativo o judicial que ejercer contra la institución.
+            </p>
+        </div>
+
+        <!-- FIRMAS -->
+        <div class="row pt-4 text-center">
+            <div class="col-4">
+                <div class="signature-box">
+                    <div class="fw-bold text-dark small">{{ liq.empleado_nombre }}</div>
+                    <div class="small text-muted">Cédula: {{ liq.empleado_cedula }}</div>
+                    <div class="small text-uppercase fw-semibold text-secondary">Colaborador / Liquidado</div>
+                </div>
+            </div>
+            <div class="col-4">
+                <div class="signature-box">
+                    <div class="fw-bold text-dark small">{{ liq.usuario_registro or 'Recursos Humanos' }}</div>
+                    <div class="small text-muted">Depto. de Gestión de Talento</div>
+                    <div class="small text-uppercase fw-semibold text-secondary">Elaborado por (RRHH)</div>
+                </div>
+            </div>
+            <div class="col-4">
+                <div class="signature-box">
+                    <div class="fw-bold text-dark small">Gerencia General</div>
+                    <div class="small text-muted">Representante Legal</div>
+                    <div class="small text-uppercase fw-semibold text-secondary">Autorizado por</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center text-muted small mt-5 pt-3 border-top">
+            Documento emitido electrónicamente por el Sistema de Planilla y Recursos Humanos PlanillaNica. Código de verificación: {{ liq.codigo }}.
+        </div>
+    </div>
+
+</body>
+</html>

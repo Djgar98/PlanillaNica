@@ -96,7 +96,8 @@
                         {% for d in detalles %}
                         <tr>
                             <td class="ps-0">
-                                <strong>{{ d.cantidad }}x {{ d.nombre }}</strong><br>
+                                <strong>{{ d.cantidad }}x {{ d.nombre }}</strong>
+                                {% if d.modelo %}<br><span class="text-secondary" style="font-size: 10px;">Mod: {{ d.modelo }}</span>{% endif %}<br>
                                 <span class="text-muted" style="font-size: 11px;">{{ d.precio_unitario | moneda }} c/u</span>
                             </td>
                             <td class="text-end pe-0 align-top">{{ d.subtotal | moneda }}</td>

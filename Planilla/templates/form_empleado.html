@@ -4,78 +4,112 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ 'Editar Empleado' if empleado else 'Nuevo Empleado' }} - PlanillaNica</title>
-    <!-- Google Fonts & Bootstrap Icons -->
+    <!-- Google Fonts & Bootstrap 5.3 -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<body>
+<body class="bg-light">
 
     {% include '_nav.html' %}
 
-    <div class="container pb-5" style="max-width: 800px;">
+    <div class="container pb-5" style="max-width: 840px;">
         
+        <!-- BREADCRUMB -->
+        <nav aria-label="breadcrumb" class="mb-3">
+            <ol class="breadcrumb small">
+                <li class="breadcrumb-item"><a href="{{ url_for('index') }}" class="text-decoration-none">Colaboradores</a></li>
+                <li class="breadcrumb-item active" aria-current="page">{{ 'Editar Expediente' if empleado and empleado.get('id') else 'Nuevo Ingreso' }}</li>
+            </ol>
+        </nav>
+
         <!-- ALERTAS FLASH -->
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
             {% for category, message in messages %}
               <div class="alert alert-{{ category }} alert-dismissible fade show mb-4 shadow-sm" role="alert">
-                <i class="bi bi-exclamation-triangle-fill me-2"></i> {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                <i class="bi bi-info-circle-fill me-2"></i> {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
               </div>
             {% endfor %}
           {% endif %}
         {% endwith %}
 
-        <div class="card bg-white shadow-sm border-0">
-            <div class="card-body p-4 p-md-5">
-                
-                <div class="d-flex align-items-center gap-3 mb-4 pb-3 border-bottom">
-                    <div class="bg-primary bg-opacity-10 text-primary p-3 rounded-3 fs-4">
+        <!-- CABECERA -->
+        <div class="card border-0 shadow-sm bg-white rounded-3 mb-4">
+            <div class="card-body p-4">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="bg-primary bg-opacity-10 text-primary p-3 rounded-3 fs-3">
                         <i class="bi {{ 'bi-person-gear' if empleado and empleado.get('id') else 'bi-person-plus-fill' }}"></i>
                     </div>
                     <div>
-                        <h4 class="fw-bold mb-1 text-slate-900">{{ 'Editar Expediente Laboral' if empleado and empleado.get('id') else 'Registro de Nuevo Empleado' }}</h4>
-                        <p class="text-muted small mb-0">Completa los datos de identificación y contratación del colaborador.</p>
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <span class="badge bg-primary-subtle text-primary fw-semibold px-2 py-1">
+                                <i class="bi bi-person-vcard me-1"></i> Expediente Laboral
+                            </span>
+                            <span class="text-muted small">Ley 185 - Código del Trabajo</span>
+                        </div>
+                        <h4 class="fw-bold mb-1 text-slate-900">{{ 'Editar Expediente Laboral' if empleado and empleado.get('id') else 'Registro de Nuevo Colaborador' }}</h4>
+                        <p class="text-muted small mb-0">Completa los datos de identificación legal y contratación del trabajador.</p>
                     </div>
                 </div>
+            </div>
+        </div>
 
-                <form method="POST" id="formEmpleado">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    
-                    <h5 class="fw-bold mb-3 text-primary">Datos Personales</h5>
-                    <div class="row g-3 mb-4">
+        <form method="POST" id="formEmpleado">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+            <!-- SECCIÓN 1: DATOS PERSONALES -->
+            <div class="card border-0 shadow-sm bg-white rounded-3 mb-4">
+                <div class="card-header bg-white py-3 px-4 border-bottom">
+                    <h6 class="fw-bold text-slate-800 mb-0">
+                        <i class="bi bi-person-lines-fill me-2 text-primary"></i>1. Identificación Personal
+                    </h6>
+                </div>
+                <div class="card-body p-4">
+                    <div class="row g-3">
                         <div class="col-md-6">
-                            <label class="form-label">Primer Nombre <span class="text-danger">*</span></label>
+                            <label class="form-label fw-semibold text-slate-700 small">Primer Nombre <span class="text-danger">*</span></label>
                             <input type="text" name="primer_nombre" class="form-control" placeholder="Ej: Juan" value="{{ empleado.primer_nombre if empleado else '' }}" required>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Segundo Nombre</label>
+                            <label class="form-label fw-semibold text-slate-700 small">Segundo Nombre</label>
                             <input type="text" name="segundo_nombre" class="form-control" placeholder="Ej: José" value="{{ empleado.segundo_nombre if empleado else '' }}">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Primer Apellido <span class="text-danger">*</span></label>
+                            <label class="form-label fw-semibold text-slate-700 small">Primer Apellido <span class="text-danger">*</span></label>
                             <input type="text" name="primer_apellido" class="form-control" placeholder="Ej: Pérez" value="{{ empleado.primer_apellido if empleado else '' }}" required>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Segundo Apellido</label>
+                            <label class="form-label fw-semibold text-slate-700 small">Segundo Apellido</label>
                             <input type="text" name="segundo_apellido" class="form-control" placeholder="Ej: López" value="{{ empleado.segundo_apellido if empleado else '' }}">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Cédula de Identidad <span class="text-danger">*</span></label>
-                            <input type="text" name="cedula" id="cedula" class="form-control" placeholder="000-000000-0000X" value="{{ empleado.cedula if empleado else '' }}" required>
+                            <label class="form-label fw-semibold text-slate-700 small">Cédula de Identidad <span class="text-danger">*</span></label>
+                            <input type="text" name="cedula" id="cedula" class="form-control font-monospace" placeholder="000-000000-0000X" value="{{ empleado.cedula if empleado else '' }}" required>
+                            <small class="text-muted">Formato nacional de Nicaragua.</small>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Número INSS</label>
-                            <input type="text" name="numero_inss" id="numero_inss" class="form-control" placeholder="1234567-8" value="{{ empleado.numero_inss if empleado else '' }}">
+                            <label class="form-label fw-semibold text-slate-700 small">Número de Seguro Social (INSS)</label>
+                            <input type="text" name="numero_inss" id="numero_inss" class="form-control font-monospace" placeholder="1234567-8" value="{{ empleado.numero_inss if empleado else '' }}">
+                            <small class="text-muted">Número patronal o de asegurado.</small>
                         </div>
                     </div>
+                </div>
+            </div>
 
-                    <h5 class="fw-bold mb-3 text-primary">Datos Laborales</h5>
-                    <div class="row g-3 mb-4">
+            <!-- SECCIÓN 2: CONDICIONES LABORALES -->
+            <div class="card border-0 shadow-sm bg-white rounded-3 mb-4">
+                <div class="card-header bg-white py-3 px-4 border-bottom">
+                    <h6 class="fw-bold text-slate-800 mb-0">
+                        <i class="bi bi-briefcase-fill me-2 text-primary"></i>2. Condiciones de Contratación
+                    </h6>
+                </div>
+                <div class="card-body p-4">
+                    <div class="row g-3">
                         <div class="col-md-6">
-                            <label class="form-label">Cargo <span class="text-danger">*</span></label>
+                            <label class="form-label fw-semibold text-slate-700 small">Cargo / Puesto <span class="text-danger">*</span></label>
                             <select name="cargo_id" class="form-select" required>
                                 <option value="" disabled {% if not empleado or not empleado.cargo_id %}selected{% endif %}>Seleccione un cargo</option>
                                 {% for cargo in cargos %}
@@ -83,8 +117,8 @@
                                 {% endfor %}
                             </select>
                         </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Departamento <span class="text-danger">*</span></label>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-slate-700 small">Departamento de Área <span class="text-danger">*</span></label>
                             <select name="departamento_id" class="form-select" required>
                                 <option value="" disabled {% if not empleado or not empleado.get('departamento_id') %}selected{% endif %}>Seleccione un departamento</option>
                                 {% for depto in departamentos %}
@@ -93,33 +127,41 @@
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Fecha de Ingreso</label>
+                            <label class="form-label fw-semibold text-slate-700 small">Fecha de Inicio de Labores</label>
                             <input type="date" name="fecha_ingreso" class="form-control" value="{{ empleado.fecha_ingreso if empleado else '' }}">
+                            <small class="text-muted">Base para antigüedad, vacaciones y aguinaldo.</small>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Salario Base Mensual (C$) <span class="text-danger">*</span></label>
+                            <label class="form-label fw-semibold text-slate-700 small">Salario Base Mensual Pactado (C$) <span class="text-danger">*</span></label>
                             <input type="hidden" name="salario_base" id="salario_base" value="{{ empleado.salario_base if empleado else '0' }}">
-                            <input type="text" id="salario_display" class="form-control font-monospace text-end" placeholder="C$ 0.00" required>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light fw-bold text-success">C$</span>
+                                <input type="text" id="salario_display" class="form-control font-monospace fw-bold text-success" placeholder="C$ 0.00" required>
+                            </div>
+                            <small class="text-muted">Monto contractual sujeto a deducciones de ley.</small>
                         </div>
                     </div>
-                    
-                    <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
-                        <a href="{{ url_for('index') }}" class="btn btn-light">Cancelar</a>
-                        <button type="submit" class="btn btn-primary px-4 fw-semibold">
-                            <i class="bi bi-save me-1"></i> {{ 'Actualizar Expediente' if empleado and empleado.get('id') else 'Guardar Empleado' }}
-                        </button>
-                    </div>
-
-                </form>
-
+                </div>
             </div>
-        </div>
+            
+            <!-- ACCIONES -->
+            <div class="d-flex align-items-center justify-content-between pt-2">
+                <a href="{{ url_for('index') }}" class="btn btn-light border px-4 py-2 text-muted">
+                    <i class="bi bi-x-circle me-1"></i> Cancelar
+                </a>
+                <button type="submit" class="btn btn-primary px-4 py-2 fw-semibold shadow-sm">
+                    <i class="bi bi-save me-1"></i> {{ 'Actualizar Expediente' if empleado and empleado.get('id') else 'Guardar Colaborador' }}
+                </button>
+            </div>
+
+        </form>
+
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 
-    <!-- SCRIPT DE MÁSCARAS INTEGRADO DIRECTAMENTE -->
+    <!-- SCRIPT DE MÁSCARAS -->
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             // 1. Cédula Nicaragüense (000-000000-0000X)

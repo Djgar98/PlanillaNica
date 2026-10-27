@@ -3,18 +3,24 @@ import os
 import re
 import secrets
 import sqlite3
-from datetime import date
+from datetime import date, datetime
 from functools import wraps
 from pathlib import Path
 
-from flask import Flask, abort, flash, redirect, render_template, request, session, url_for
+from flask import Flask, abort, flash, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from database import (
     calcular_planilla_completa, get_db, init_db, obtener_empleados_con_ultimo_pago,
     obtener_historial_empleado, obtener_planillas_por_mes, registrar_movimiento,
     obtener_todos_periodos_planilla, obtener_periodo_con_transacciones, obtener_todos_empleados,
-    obtener_transacciones_abonos_por_mes
+    obtener_transacciones_abonos_por_mes, crear_garantias_para_venta, anular_garantias_de_venta,
+    anular_garantias_parcial, obtener_garantias, obtener_resumen_garantias,
+    obtener_garantia_por_id, ejecutar_garantia,
+    calcular_saldo_vacaciones, registrar_vacaciones_gozadas, obtener_historial_vacaciones,
+    obtener_resumen_vacaciones_todos, calcular_antiguedad_detallada, calcular_liquidacion,
+    guardar_liquidacion, obtener_liquidaciones, obtener_resumen_liquidaciones,
+    obtener_liquidacion_por_id
 )
 from payroll_module import GestorPlanillaDiferida, CalcularAguinaldo, a_decimal
 from roles_permisos import (
@@ -89,6 +95,8 @@ def inyectar_contexto_global():
 
 @app.before_request
 def validar_csrf():
+    if app.config.get("TESTING") and not app.config.get("WTF_CSRF_ENABLED", False):
+        return
     if request.method == "POST":
         token, token_sesion = request.form.get("csrf_token", ""), session.get("csrf_token", "")
         if not token_sesion or not secrets.compare_digest(token, token_sesion):
@@ -727,14 +735,24 @@ def recibo_aguinaldo(empleado_id, anio):
 def inventario():
     incluir_inactivos = request.args.get("todos") == "1"
     with get_db() as conn:
-        productos = conn.execute("SELECT p.*, c.nombre as categoria_nombre FROM productos p LEFT JOIN categorias c ON c.id=p.categoria_id " + ("" if incluir_inactivos else "WHERE p.activo = 1 ") + "ORDER BY p.activo DESC, p.nombre").fetchall()
+        query = """
+            SELECT p.*, c.nombre as categoria_nombre, m.nombre as marca_nombre, t.nombre as tipo_nombre 
+            FROM productos p 
+            LEFT JOIN categorias c ON c.id=p.categoria_id 
+            LEFT JOIN marcas m ON m.id=p.marca_id
+            LEFT JOIN tipos t ON t.id=p.tipo_id
+        """
+        if not incluir_inactivos:
+            query += " WHERE p.activo = 1 "
+        query += " ORDER BY p.activo DESC, p.nombre"
+        productos = conn.execute(query).fetchall()
         movimientos = conn.execute("""SELECT m.*, p.nombre AS producto, u.usuario FROM movimientos_inventario m
             JOIN productos p ON p.id=m.producto_id LEFT JOIN usuarios u ON u.id=m.usuario_id ORDER BY m.id DESC LIMIT 12""").fetchall()
     return render_template("inventario.html", productos=productos, movimientos=movimientos, incluir_inactivos=incluir_inactivos)
 
 
 def datos_producto(formulario):
-    datos = {k: formulario.get(k, "").strip() for k in ("codigo", "nombre", "descripcion")}
+    datos = {k: formulario.get(k, "").strip() for k in ("codigo", "nombre", "descripcion", "modelo")}
     datos["categoria_id"] = formulario.get("categoria_id") or 1
     datos["marca_id"] = formulario.get("marca_id") or 1
     datos["tipo_id"] = formulario.get("tipo_id") or 1
@@ -743,6 +761,10 @@ def datos_producto(formulario):
     datos["precio_compra"] = numero_positivo(formulario.get("precio_compra", 0), "El precio de compra")
     datos["precio_venta"] = numero_positivo(formulario.get("precio_venta"), "El precio de venta")
     datos["stock_minimo"] = int(numero_positivo(formulario.get("stock_minimo", 0), "El stock mínimo"))
+    try:
+        datos["meses_garantia"] = max(0, int(formulario.get("meses_garantia", 12) or 0))
+    except (ValueError, TypeError):
+        datos["meses_garantia"] = 12
     return datos
 
 
@@ -758,11 +780,11 @@ def nuevo_producto():
             datos = datos_producto(request.form)
             inicial = int(numero_positivo(request.form.get("existencia", 0), "La existencia inicial"))
             with get_db() as conn:
-                cursor = conn.execute("""INSERT INTO productos (codigo,nombre,descripcion,categoria_id,marca_id,tipo_id,precio_compra,precio_venta,existencia,stock_minimo)
-                    VALUES (:codigo,:nombre,:descripcion,:categoria_id,:marca_id,:tipo_id,:precio_compra,:precio_venta,0,:stock_minimo)""", datos)
+                cursor = conn.execute("""INSERT INTO productos (codigo,nombre,descripcion,modelo,categoria_id,marca_id,tipo_id,precio_compra,precio_venta,existencia,stock_minimo,meses_garantia)
+                    VALUES (:codigo,:nombre,:descripcion,:modelo,:categoria_id,:marca_id,:tipo_id,:precio_compra,:precio_venta,0,:stock_minimo,:meses_garantia)""", datos)
                 if inicial:
-                    registrar_movimiento(conn, cursor.lastrowid, "entrada", inicial, session["usuario_id"], "Alta de producto", "Existencia inicial")
-            flash("Producto registrado correctamente.", "success")
+                    registrar_movimiento(conn, cursor.lastrowid, "entrada", inicial, session["usuario_id"], "Alta de producto tecnológico", "Existencia inicial")
+            flash("Producto tecnológico registrado correctamente.", "success")
             return redirect(url_for("inventario"))
         except (ValueError, sqlite3.IntegrityError) as error:
             flash("El código ya existe." if isinstance(error, sqlite3.IntegrityError) else str(error), "danger")
@@ -790,9 +812,9 @@ def editar_producto(producto_id):
             datos = datos_producto(request.form)
             datos["id"] = producto_id
             with get_db() as conn:
-                conn.execute("""UPDATE productos SET codigo=:codigo, nombre=:nombre, descripcion=:descripcion, categoria_id=:categoria_id, marca_id=:marca_id, tipo_id=:tipo_id,
-                    precio_compra=:precio_compra, precio_venta=:precio_venta, stock_minimo=:stock_minimo WHERE id=:id""", datos)
-            flash("Producto actualizado.", "success")
+                conn.execute("""UPDATE productos SET codigo=:codigo, nombre=:nombre, descripcion=:descripcion, modelo=:modelo, categoria_id=:categoria_id, marca_id=:marca_id, tipo_id=:tipo_id,
+                    precio_compra=:precio_compra, precio_venta=:precio_venta, stock_minimo=:stock_minimo, meses_garantia=:meses_garantia WHERE id=:id""", datos)
+            flash("Producto tecnológico actualizado correctamente.", "success")
             return redirect(url_for("inventario"))
         except (ValueError, sqlite3.IntegrityError) as error:
             flash("El código ya existe." if isinstance(error, sqlite3.IntegrityError) else str(error), "danger")
@@ -857,7 +879,14 @@ def ventas():
 @requiere_permiso("crear_ventas")
 def nueva_venta():
     with get_db() as conn:
-        productos = conn.execute("SELECT * FROM productos WHERE activo=1 AND existencia>0 ORDER BY nombre").fetchall()
+        productos = conn.execute("""
+            SELECT p.*, m.nombre as marca_nombre, t.nombre as tipo_nombre
+            FROM productos p
+            LEFT JOIN marcas m ON m.id = p.marca_id
+            LEFT JOIN tipos t ON t.id = p.tipo_id
+            WHERE p.activo=1 AND p.existencia>0 
+            ORDER BY p.nombre
+        """).fetchall()
     if request.method == "POST":
         try:
             acumulado = {}
@@ -878,7 +907,10 @@ def nueva_venta():
                 for pid, cant, precio, subtotal in lineas:
                     conn.execute("INSERT INTO detalle_ventas (venta_id,producto_id,cantidad,precio_unitario,subtotal) VALUES (?,?,?,?,?)", (cursor.lastrowid,pid,cant,precio,subtotal))
                     registrar_movimiento(conn, pid, "venta", -cant, session["usuario_id"], f"Venta #{cursor.lastrowid}")
-            flash("Venta registrada correctamente.", "success")
+                
+                # Creación automática de garantías para los productos vendidos
+                crear_garantias_para_venta(conn, cursor.lastrowid, request.form.get("cliente", "").strip())
+            flash("Venta registrada correctamente y garantías generadas.", "success")
             return redirect(url_for("detalle_venta", venta_id=cursor.lastrowid))
         except (ValueError, sqlite3.Error) as error:
             flash(str(error), "danger")
@@ -897,8 +929,15 @@ def detalle_venta(venta_id):
         if not tiene_permiso(rol, "consultar_todas_ventas"):
             if venta["usuario_id"] != session.get("usuario_id"):
                 abort(403, "Solo puedes consultar tus propias ventas.")
-        detalles = conn.execute("SELECT d.*,p.nombre,p.codigo FROM detalle_ventas d JOIN productos p ON p.id=d.producto_id WHERE d.venta_id=?", (venta_id,)).fetchall()
-    return render_template("detalle_venta.html", venta=venta, detalles=detalles)
+        detalles = conn.execute("SELECT d.*,p.nombre,p.codigo,p.modelo FROM detalle_ventas d JOIN productos p ON p.id=d.producto_id WHERE d.venta_id=?", (venta_id,)).fetchall()
+        garantias = conn.execute("""
+            SELECT g.*, p.nombre AS producto_nombre, p.codigo AS producto_codigo, p.modelo AS producto_modelo 
+            FROM garantias g 
+            JOIN productos p ON p.id = g.producto_id 
+            WHERE g.venta_id = ? 
+            ORDER BY g.id ASC
+        """, (venta_id,)).fetchall()
+    return render_template("detalle_venta.html", venta=venta, detalles=detalles, garantias=garantias)
 
 
 @app.route("/ventas/<int:venta_id>/ticket")
@@ -914,7 +953,7 @@ def ticket_venta(venta_id):
         if not tiene_permiso(rol, "consultar_todas_ventas"):
             if venta["usuario_id"] != session.get("usuario_id"):
                 abort(403, "Solo puedes consultar tus propias ventas.")
-        detalles = conn.execute("SELECT d.*, p.nombre, p.codigo FROM detalle_ventas d JOIN productos p ON p.id=d.producto_id WHERE d.venta_id=?", (venta_id,)).fetchall()
+        detalles = conn.execute("SELECT d.*, p.nombre, p.codigo, p.modelo FROM detalle_ventas d JOIN productos p ON p.id=d.producto_id WHERE d.venta_id=?", (venta_id,)).fetchall()
     return render_template("ticket_venta.html", venta=venta, detalles=detalles)
 
 
@@ -933,7 +972,9 @@ def anular_venta(venta_id):
             for detalle in detalles:
                 registrar_movimiento(conn, detalle["producto_id"], tipo, detalle["cantidad"], session["usuario_id"], f"Venta #{venta_id}", request.form.get("motivo", "").strip())
             conn.execute("UPDATE ventas SET estado=?, motivo_anulacion=? WHERE id=?", (accion, request.form.get("motivo", "").strip(), venta_id))
-        flash("La venta fue " + ("anulada" if accion == "anulada" else "devuelta") + " y el inventario se restauró.", "success")
+            # Anular garantías asociadas a la venta
+            anular_garantias_de_venta(conn, venta_id, f"Venta {accion}: {request.form.get('motivo', '').strip()}")
+        flash("La venta fue " + ("anulada" if accion == "anulada" else "devuelta") + " y sus garantías fueron canceladas.", "success")
     except ValueError as error: flash(str(error), "danger")
     return redirect(url_for("detalle_venta", venta_id=venta_id))
 
@@ -1018,6 +1059,9 @@ def devolucion_parcial(venta_id):
             
         # Reingreso al inventario
         registrar_movimiento(conn, producto_id, "devolucion", cantidad, session["usuario_id"], f"Venta #{venta_id} (Parcial)", motivo)
+        
+        # Anular garantías de las unidades devueltas
+        anular_garantias_parcial(conn, venta_id, producto_id, cantidad, motivo)
         
         # Actualizar detalle
         nueva_cantidad = detalle["cantidad"] - cantidad
@@ -1195,7 +1239,14 @@ def estado_categoria(cat_id, estado):
 @requiere_permiso("consultar_reportes_inventario", "consultar_reportes_auditoria")
 def kardex_lista():
     with get_db() as conn:
-        productos = conn.execute("SELECT p.id, p.codigo, p.nombre, p.existencia FROM productos p ORDER BY p.nombre").fetchall()
+        productos = conn.execute("""
+            SELECT p.id, p.codigo, p.nombre, p.modelo, p.existencia,
+                   c.nombre as categoria_nombre, m.nombre as marca_nombre
+            FROM productos p 
+            LEFT JOIN categorias c ON c.id=p.categoria_id
+            LEFT JOIN marcas m ON m.id=p.marca_id
+            ORDER BY p.nombre
+        """).fetchall()
     return render_template("kardex_lista.html", productos=productos)
 
 
@@ -1203,7 +1254,14 @@ def kardex_lista():
 @requiere_permiso("consultar_reportes_inventario", "consultar_reportes_auditoria")
 def kardex_producto(producto_id):
     with get_db() as conn:
-        producto = conn.execute("SELECT * FROM productos WHERE id=?", (producto_id,)).fetchone()
+        producto = conn.execute("""
+            SELECT p.*, c.nombre as categoria_nombre, m.nombre as marca_nombre, t.nombre as tipo_nombre
+            FROM productos p
+            LEFT JOIN categorias c ON c.id=p.categoria_id
+            LEFT JOIN marcas m ON m.id=p.marca_id
+            LEFT JOIN tipos t ON t.id=p.tipo_id
+            WHERE p.id=?
+        """, (producto_id,)).fetchone()
         if not producto: abort(404)
         movs = conn.execute("SELECT m.*, u.usuario FROM movimientos_inventario m LEFT JOIN usuarios u ON u.id=m.usuario_id WHERE m.producto_id=? ORDER BY m.id ASC", (producto_id,)).fetchall()
     return render_template("kardex_detalle.html", producto=producto, movimientos=movs)
@@ -1277,8 +1335,9 @@ def resolver_solicitud(solicitud_id):
                 
                 estado_final = "anulada" if sol["tipo"] == "anulacion" else "devuelta"
                 conn.execute("UPDATE ventas SET estado=? WHERE id=?", (estado_final, venta_id))
+                anular_garantias_de_venta(conn, venta_id, f"Solicitud {sol['tipo']} aprobada: {sol['motivo']}")
                 conn.execute("UPDATE solicitudes_anulacion SET estado='aprobada', usuario_autoriza_id=?, fecha_resolucion=CURRENT_TIMESTAMP WHERE id=?", (session["usuario_id"], solicitud_id))
-                flash("Solicitud aprobada y stock restaurado.", "success")
+                flash("Solicitud aprobada, stock restaurado y garantías anuladas.", "success")
             else:
                 conn.execute("UPDATE ventas SET estado='completada' WHERE id=?", (venta_id,))
                 conn.execute("UPDATE solicitudes_anulacion SET estado='rechazada', usuario_autoriza_id=?, fecha_resolucion=CURRENT_TIMESTAMP WHERE id=?", (session["usuario_id"], solicitud_id))
@@ -1287,6 +1346,316 @@ def resolver_solicitud(solicitud_id):
         flash(str(e), "danger")
         
     return redirect(url_for("solicitudes"))
+
+
+@app.route("/garantias")
+@requiere_login
+def garantias():
+    rol = session.get("rol")
+    if not (tiene_permiso(rol, "consultar_todas_ventas") or tiene_permiso(rol, "consultar_ventas_propias")):
+        abort(403, "No tienes permiso para consultar garantías.")
+        
+    estado = request.args.get("estado", "")
+    busqueda = request.args.get("busqueda", "").strip()
+    fecha_desde = request.args.get("fecha_desde", "").strip()
+    fecha_hasta = request.args.get("fecha_hasta", "").strip()
+    
+    usuario_id = None if tiene_permiso(rol, "consultar_todas_ventas") else session.get("usuario_id")
+    
+    with get_db() as conn:
+        resumen = obtener_resumen_garantias(conn, usuario_id)
+        lista_garantias = obtener_garantias(
+            conn,
+            estado=estado,
+            busqueda=busqueda,
+            fecha_desde=fecha_desde,
+            fecha_hasta=fecha_hasta,
+            usuario_id=usuario_id
+        )
+        
+    return render_template(
+        "garantias.html",
+        garantias=lista_garantias,
+        resumen=resumen,
+        estado_filtro=estado,
+        busqueda=busqueda,
+        fecha_desde=fecha_desde,
+        fecha_hasta=fecha_hasta
+    )
+
+
+@app.route("/garantias/<int:garantia_id>")
+@requiere_login
+def detalle_garantia(garantia_id):
+    return redirect(url_for("certificado_garantia", garantia_id=garantia_id))
+
+
+@app.route("/garantias/<int:garantia_id>/ejecutar", methods=["POST"])
+@requiere_login
+def ejecutar_garantia_post(garantia_id):
+    rol = session.get("rol")
+    if not (tiene_permiso(rol, "crear_ventas") or tiene_permiso(rol, "resolver_solicitudes") or tiene_permiso(rol, "consultar_todas_ventas")):
+        abort(403, "No tienes permiso para ejecutar garantías.")
+        
+    tipo_resolucion = request.form.get("tipo_resolucion", "reparacion").strip()
+    motivo_reclamo = request.form.get("motivo_reclamo", "").strip()
+    diagnostico = request.form.get("diagnostico", "").strip()
+    resolucion_notas = request.form.get("resolucion_notas", "").strip()
+    descontar_inventario = request.form.get("descontar_inventario") in ("1", "true", "on", "si")
+    
+    if not motivo_reclamo or not resolucion_notas:
+        flash("La falla reportada y la resolución son obligatorias para ejecutar la garantía.", "warning")
+        return redirect(url_for("garantias"))
+        
+    try:
+        with get_db() as conn:
+            codigo = ejecutar_garantia(
+                conn,
+                garantia_id=garantia_id,
+                usuario_id=session.get("usuario_id"),
+                tipo_resolucion=tipo_resolucion,
+                motivo_reclamo=motivo_reclamo,
+                diagnostico=diagnostico,
+                resolucion_notas=resolucion_notas,
+                descontar_inventario=descontar_inventario
+            )
+        flash(f"Garantía #{codigo} ejecutada exitosamente con resolución de {tipo_resolucion}.", "success")
+    except ValueError as e:
+        flash(str(e), "danger")
+        
+    return redirect(url_for("garantias"))
+
+
+@app.route("/garantias/<int:garantia_id>/certificado")
+@requiere_login
+def certificado_garantia(garantia_id):
+    rol = session.get("rol")
+    if not (tiene_permiso(rol, "consultar_todas_ventas") or tiene_permiso(rol, "consultar_ventas_propias")):
+        abort(403, "No tienes permiso para consultar certificados de garantía.")
+        
+    with get_db() as conn:
+        garantia = obtener_garantia_por_id(conn, garantia_id)
+        if not garantia:
+            abort(404)
+        if not tiene_permiso(rol, "consultar_todas_ventas") and garantia["venta_usuario_id"] != session.get("usuario_id"):
+            abort(403, "Solo puedes consultar certificados de tus propias ventas.")
+            
+    return render_template("certificado_garantia.html", garantia=garantia)
+
+
+# =====================================================================
+# RUTAS DE VACACIONES (Art. 76 Ley 185)
+# =====================================================================
+
+@app.route("/vacaciones")
+@requiere_login
+def vacaciones():
+    rol = session.get("rol")
+    if not (tiene_permiso(rol, "consultar_planilla") or tiene_permiso(rol, "consultar_empleados") or tiene_permiso(rol, "gestionar_empleados")):
+        abort(403, "No tienes permiso para consultar el módulo de vacaciones.")
+        
+    fecha_corte = request.args.get("fecha_corte", "").strip() or datetime.now().strftime("%Y-%m-%d")
+    
+    with get_db() as conn:
+        lista_empleados, totales = obtener_resumen_vacaciones_todos(conn, fecha_corte)
+        historial = obtener_historial_vacaciones(conn)
+        empleados_activos = conn.execute("SELECT id, nombre, cedula FROM empleados WHERE activo=1 ORDER BY nombre ASC").fetchall()
+        
+    return render_template(
+        "vacaciones.html",
+        empleados=lista_empleados,
+        totales=totales,
+        historial=historial,
+        empleados_activos=empleados_activos,
+        fecha_corte=fecha_corte
+    )
+
+
+@app.route("/vacaciones/registrar", methods=["POST"])
+@requiere_login
+def registrar_vacaciones():
+    rol = session.get("rol")
+    if not (tiene_permiso(rol, "gestionar_empleados") or tiene_permiso(rol, "procesar_planilla")):
+        abort(403, "No tienes permiso para registrar vacaciones.")
+        
+    empleado_id = request.form.get("empleado_id", type=int)
+    fecha_inicio = request.form.get("fecha_inicio", "").strip()
+    fecha_fin = request.form.get("fecha_fin", "").strip()
+    dias_gozados = request.form.get("dias_gozados", type=float)
+    observaciones = request.form.get("observaciones", "").strip()
+    
+    if not empleado_id or not fecha_inicio or not fecha_fin or not dias_gozados or dias_gozados <= 0:
+        flash("Todos los campos obligatorios deben ser completados correctamente.", "warning")
+        return redirect(url_for("vacaciones"))
+        
+    try:
+        with get_db() as conn:
+            registrar_vacaciones_gozadas(
+                conn,
+                empleado_id=empleado_id,
+                fecha_inicio=fecha_inicio,
+                fecha_fin=fecha_fin,
+                dias_gozados=dias_gozados,
+                observaciones=observaciones,
+                usuario_id=session.get("usuario_id")
+            )
+        flash(f"Registro de {dias_gozados} días de vacaciones guardado correctamente.", "success")
+    except ValueError as e:
+        flash(str(e), "danger")
+        
+    return redirect(url_for("vacaciones"))
+
+
+# =====================================================================
+# RUTAS DE LIQUIDACIONES (Despido / Renuncia - Ley 185 y Ley 476)
+# =====================================================================
+
+@app.route("/liquidaciones")
+@requiere_login
+def liquidaciones():
+    rol = session.get("rol")
+    if not (tiene_permiso(rol, "consultar_planilla") or tiene_permiso(rol, "consultar_empleados") or tiene_permiso(rol, "gestionar_empleados")):
+        abort(403, "No tienes permiso para consultar liquidaciones.")
+        
+    motivo = request.args.get("motivo", "").strip()
+    estado = request.args.get("estado", "").strip()
+    busqueda = request.args.get("busqueda", "").strip()
+    
+    with get_db() as conn:
+        resumen = obtener_resumen_liquidaciones(conn)
+        lista_liquidaciones = obtener_liquidaciones(conn, motivo, estado, busqueda)
+        
+    return render_template(
+        "liquidaciones.html",
+        liquidaciones=lista_liquidaciones,
+        resumen=resumen,
+        motivo_filtro=motivo,
+        estado_filtro=estado,
+        busqueda=busqueda
+    )
+
+
+@app.route("/liquidaciones/nueva", methods=["GET", "POST"])
+@requiere_login
+def nueva_liquidacion():
+    rol = session.get("rol")
+    if not (tiene_permiso(rol, "gestionar_empleados") or tiene_permiso(rol, "procesar_planilla")):
+        abort(403, "No tienes permiso para calcular o procesar liquidaciones.")
+        
+    with get_db() as conn:
+        empleados = conn.execute("SELECT id, nombre, cedula, salario_base, fecha_ingreso, activo FROM empleados ORDER BY activo DESC, nombre ASC").fetchall()
+        
+    if request.method == "POST":
+        empleado_id = request.form.get("empleado_id", type=int)
+        fecha_salida = request.form.get("fecha_salida", "").strip()
+        motivo = request.form.get("motivo", "despido").strip()
+        regimen = request.form.get("regimen", "privada").strip()
+        dias_salario = float(request.form.get("dias_salario_pendiente", 0) or 0)
+        otras_ded = float(request.form.get("otras_deducciones", 0) or 0)
+        motivo_ded = request.form.get("motivo_deducciones", "").strip()
+        dar_de_baja = request.form.get("dar_de_baja") in ("1", "true", "on", "si")
+        forzar_indem = request.form.get("forzar_indemnizacion") in ("1", "true", "on", "si") if motivo == "renuncia" else None
+        observaciones = request.form.get("observaciones", "").strip()
+        
+        if not empleado_id or not fecha_salida:
+            flash("Debes seleccionar un empleado y una fecha de terminación laboral.", "danger")
+            return redirect(url_for("nueva_liquidacion"))
+            
+        try:
+            with get_db() as conn:
+                calc = calcular_liquidacion(
+                    conn,
+                    empleado_id=empleado_id,
+                    fecha_salida=fecha_salida,
+                    motivo=motivo,
+                    regimen=regimen,
+                    dias_salario_pendiente=dias_salario,
+                    otras_deducciones=otras_ded,
+                    motivo_deducciones=motivo_ded,
+                    forzar_indemnizacion=forzar_indem
+                )
+                calc["observaciones"] = observaciones
+                
+                liq_id, codigo = guardar_liquidacion(
+                    conn,
+                    datos=calc,
+                    usuario_id=session.get("usuario_id"),
+                    dar_de_baja=dar_de_baja
+                )
+                
+            flash(f"Liquidación #{codigo} registrada exitosamente. Empleado {'desactivado (baja)' if dar_de_baja else 'activo'}.", "success")
+            return redirect(url_for("finiquito_liquidacion", liquidacion_id=liq_id))
+        except ValueError as e:
+            flash(str(e), "danger")
+            
+    emp_id_param = request.args.get("empleado_id", type=int)
+    calculo_inicial = None
+    if emp_id_param:
+        try:
+            with get_db() as conn:
+                calculo_inicial = calcular_liquidacion(conn, emp_id_param)
+        except Exception:
+            calculo_inicial = None
+            
+    return render_template(
+        "form_liquidacion.html",
+        empleados=empleados,
+        empleado_id_seleccionado=emp_id_param,
+        calculo_inicial=calculo_inicial,
+        hoy=datetime.now().strftime("%Y-%m-%d")
+    )
+
+
+@app.route("/liquidaciones/calcular-ajax", methods=["POST"])
+@requiere_login
+def calcular_liquidacion_ajax():
+    rol = session.get("rol")
+    if not (tiene_permiso(rol, "consultar_planilla") or tiene_permiso(rol, "gestionar_empleados") or tiene_permiso(rol, "procesar_planilla")):
+        return jsonify({"error": "No autorizado"}), 403
+        
+    empleado_id = request.form.get("empleado_id", type=int)
+    fecha_salida = request.form.get("fecha_salida", "").strip() or datetime.now().strftime("%Y-%m-%d")
+    motivo = request.form.get("motivo", "despido").strip()
+    regimen = request.form.get("regimen", "privada").strip()
+    dias_salario = float(request.form.get("dias_salario_pendiente", 0) or 0)
+    otras_ded = float(request.form.get("otras_deducciones", 0) or 0)
+    motivo_ded = request.form.get("motivo_deducciones", "").strip()
+    forzar_indem = request.form.get("forzar_indemnizacion") in ("1", "true", "on", "si") if motivo == "renuncia" else None
+    
+    if not empleado_id:
+        return jsonify({"error": "Empleado requerido"}), 400
+        
+    try:
+        with get_db() as conn:
+            calc = calcular_liquidacion(
+                conn,
+                empleado_id=empleado_id,
+                fecha_salida=fecha_salida,
+                motivo=motivo,
+                regimen=regimen,
+                dias_salario_pendiente=dias_salario,
+                otras_deducciones=otras_ded,
+                motivo_deducciones=motivo_ded,
+                forzar_indemnizacion=forzar_indem
+            )
+        return jsonify({"success": True, "datos": calc})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/liquidaciones/<int:liquidacion_id>/finiquito")
+@requiere_login
+def finiquito_liquidacion(liquidacion_id):
+    rol = session.get("rol")
+    if not (tiene_permiso(rol, "consultar_planilla") or tiene_permiso(rol, "consultar_empleados") or tiene_permiso(rol, "gestionar_empleados")):
+        abort(403, "No tienes permiso para consultar el finiquito de liquidación.")
+        
+    with get_db() as conn:
+        liq = obtener_liquidacion_por_id(conn, liquidacion_id)
+        if not liq:
+            abort(404)
+            
+    return render_template("recibo_liquidacion.html", liq=liq)
 
 
 if __name__ == "__main__":

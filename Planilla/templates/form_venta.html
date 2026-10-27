@@ -4,62 +4,104 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nueva Venta - PlanillaNica</title>
+    <!-- Google Fonts & Bootstrap 5.3 -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<body>
+<body class="bg-light">
     {% include '_nav.html' %}
 
-    <main class="container pb-5">
-        <div class="row mb-4">
-            <div class="col-12">
-                <a href="{{ url_for('ventas') }}" class="text-decoration-none text-muted mb-2 d-inline-block">
-                    <i class="bi bi-arrow-left"></i> Volver a Ventas
+    <main class="container pb-5" style="max-width: 860px;">
+
+        <!-- BREADCRUMB -->
+        <nav aria-label="breadcrumb" class="mb-3">
+            <ol class="breadcrumb small">
+                <li class="breadcrumb-item"><a href="{{ url_for('ventas') }}" class="text-decoration-none">Ventas</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Nueva Factura</li>
+            </ol>
+        </nav>
+
+        <!-- CABECERA -->
+        <div class="row align-items-center mb-4">
+            <div class="col-md-8">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="badge bg-primary-subtle text-primary fw-semibold px-2 py-1">
+                        <i class="bi bi-cart3 me-1"></i> Punto de Venta
+                    </span>
+                    <span class="text-muted small">Caja & Facturación Directa</span>
+                </div>
+                <h3 class="fw-bold text-slate-900 mb-1">Registrar Nueva Venta</h3>
+                <p class="text-muted small mb-0">Emite una nueva transacción comercial con control automático de inventario y generación de tickets.</p>
+            </div>
+            <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                <a href="{{ url_for('ventas') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 fw-medium shadow-sm">
+                    <i class="bi bi-arrow-left me-1"></i> Lista de Ventas
                 </a>
-                <h3 class="fw-bold text-slate-800">Registrar Nueva Venta</h3>
             </div>
         </div>
 
+        <!-- MENSAJES FLASH -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ category }} mb-4">{{ message }}</div>
+                    <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm mb-4" role="alert">
+                        <i class="bi bi-info-circle-fill me-2"></i> {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+                    </div>
                 {% endfor %}
             {% endif %}
         {% endwith %}
 
-        <div class="card bg-white shadow-sm">
-            <div class="card-body p-4">
+        <!-- FORMULARIO DE VENTA -->
+        <div class="card border-0 shadow-sm bg-white rounded-3">
+            <div class="card-body p-4 p-md-5">
                 <form action="{{ url_for('nueva_venta') }}" method="POST" id="formVenta">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     
+                    <!-- INFORMACIÓN DEL CLIENTE -->
                     <div class="mb-4">
-                        <label for="cliente" class="form-label fw-semibold">Nombre del Cliente (Opcional)</label>
-                        <input type="text" class="form-control" id="cliente" name="cliente" placeholder="Consumidor Final">
+                        <label for="cliente" class="form-label fw-semibold text-slate-700 small">
+                            <i class="bi bi-person me-1 text-primary"></i> Nombre del Cliente o Razón Social (Opcional)
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light text-muted"><i class="bi bi-person-badge"></i></span>
+                            <input type="text" class="form-control" id="cliente" name="cliente" placeholder="Consumidor Final (o ingrese nombre del comprador)">
+                        </div>
+                        <small class="text-muted">Si se omite, se registrará a nombre de Consumidor Final.</small>
                     </div>
 
-                    <h5 class="fw-bold mb-3 border-bottom pb-2">Productos</h5>
+                    <div class="d-flex align-items-center justify-content-between border-bottom pb-2 mb-3">
+                        <h6 class="fw-bold text-slate-900 mb-0">
+                            <i class="bi bi-bag-check me-2 text-primary"></i>Productos a Facturar
+                        </h6>
+                        <span class="badge bg-light text-secondary border small">Seleccione producto y cantidad</span>
+                    </div>
                     
                     <div id="lineas-venta">
                         <!-- Línea 1 -->
-                        <div class="row g-2 mb-3 align-items-center linea-producto">
+                        <div class="row g-2 mb-3 align-items-center linea-producto p-2 bg-light rounded-3 border">
                             <div class="col-md-7">
-                                <select name="producto_id" class="form-select select-producto" required>
-                                    <option value="">-- Seleccionar Producto --</option>
+                                <label class="form-label small text-muted mb-1 d-md-none">Producto</label>
+                                <select name="producto_id" class="form-select form-select-sm select-producto" required>
+                                    <option value="">-- Seleccionar Producto del Catálogo --</option>
                                     {% for p in productos %}
                                         <option value="{{ p.id }}" data-precio="{{ p.precio_venta }}" data-stock="{{ p.existencia }}">
-                                            {{ p.codigo }} - {{ p.nombre }} (C$ {{ p.precio_venta }}) | Stock: {{ p.existencia }}
+                                            {{ p.codigo }} - {{ p.nombre }}{% if p.modelo %} [{{ p.modelo }}]{% endif %} (C$ {{ "%.2f"|format(p.precio_venta) }}) | Stock: {{ p.existencia }}
                                         </option>
                                     {% endfor %}
                                 </select>
                             </div>
                             <div class="col-md-3">
-                                <input type="number" name="cantidad" class="form-control input-cantidad" placeholder="Cantidad" min="1" required>
+                                <label class="form-label small text-muted mb-1 d-md-none">Cantidad</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-white text-muted">Cant.</span>
+                                    <input type="number" name="cantidad" class="form-control input-cantidad" placeholder="1" min="1" required>
+                                </div>
                             </div>
                             <div class="col-md-2 text-end">
-                                <button type="button" class="btn btn-outline-danger btn-eliminar-linea" disabled>
+                                <button type="button" class="btn btn-outline-danger btn-sm btn-eliminar-linea w-100" disabled title="Eliminar Línea">
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </div>
@@ -67,40 +109,50 @@
                     </div>
 
                     <div class="mb-4">
-                        <button type="button" class="btn btn-outline-primary btn-sm" id="btn-agregar-linea">
+                        <button type="button" class="btn btn-outline-primary btn-sm fw-medium shadow-sm" id="btn-agregar-linea">
                             <i class="bi bi-plus-circle me-1"></i> Agregar otro producto
                         </button>
                     </div>
 
-                    <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
-                        <h4 class="fw-bold mb-0 text-slate-800">Total Estimado: <span id="total-estimado" class="text-success">C$ 0.00</span></h4>
-                        <button type="submit" class="btn btn-success px-4 py-2 fw-semibold shadow-sm">
-                            <i class="bi bi-check-circle me-1"></i> Completar Venta
-                        </button>
+                    <!-- TOTAL ESTIMADO Y BOTÓN DE EMISIÓN -->
+                    <div class="p-4 bg-light rounded-3 border d-flex flex-wrap align-items-center justify-content-between gap-3 mt-4">
+                        <div>
+                            <span class="text-muted small d-block">Total a Facturar:</span>
+                            <h3 class="fw-bold mb-0 text-slate-900" id="total-estimado">C$ 0.00</h3>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <a href="{{ url_for('ventas') }}" class="btn btn-light border btn-sm px-3 py-2 text-muted">Cancelar</a>
+                            <button type="submit" class="btn btn-success btn-sm px-4 py-2 fw-semibold shadow-sm">
+                                <i class="bi bi-check-circle-fill me-1"></i> Completar Venta
+                            </button>
+                        </div>
                     </div>
                 </form>
             </div>
         </div>
     </main>
 
-    <!-- Template oculto para clonar -->
+    <!-- Template oculto para clonar líneas -->
     <div id="template-linea" class="d-none">
-        <div class="row g-2 mb-3 align-items-center linea-producto">
+        <div class="row g-2 mb-3 align-items-center linea-producto p-2 bg-light rounded-3 border">
             <div class="col-md-7">
-                <select name="producto_id" class="form-select select-producto" required>
-                    <option value="">-- Seleccionar Producto --</option>
+                <select name="producto_id" class="form-select form-select-sm select-producto" required>
+                    <option value="">-- Seleccionar Producto del Catálogo --</option>
                     {% for p in productos %}
                         <option value="{{ p.id }}" data-precio="{{ p.precio_venta }}" data-stock="{{ p.existencia }}">
-                            {{ p.codigo }} - {{ p.nombre }} (C$ {{ p.precio_venta }}) | Stock: {{ p.existencia }}
+                            {{ p.codigo }} - {{ p.nombre }}{% if p.modelo %} [{{ p.modelo }}]{% endif %} (C$ {{ "%.2f"|format(p.precio_venta) }}) | Stock: {{ p.existencia }}
                         </option>
                     {% endfor %}
                 </select>
             </div>
             <div class="col-md-3">
-                <input type="number" name="cantidad" class="form-control input-cantidad" placeholder="Cantidad" min="1" required>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-white text-muted">Cant.</span>
+                    <input type="number" name="cantidad" class="form-control input-cantidad" placeholder="1" min="1" required>
+                </div>
             </div>
             <div class="col-md-2 text-end">
-                <button type="button" class="btn btn-outline-danger btn-eliminar-linea">
+                <button type="button" class="btn btn-outline-danger btn-sm btn-eliminar-linea w-100" title="Eliminar Línea">
                     <i class="bi bi-trash"></i>
                 </button>
             </div>
@@ -123,7 +175,7 @@
                     const select = linea.querySelector('.select-producto');
                     const input = linea.querySelector('.input-cantidad');
                     
-                    if (select.value && input.value) {
+                    if (select && select.value && input && input.value) {
                         const precio = parseFloat(select.options[select.selectedIndex].dataset.precio || 0);
                         const cantidad = parseInt(input.value || 0);
                         total += (precio * cantidad);
@@ -138,7 +190,7 @@
                     const stock = parseInt(option.dataset.stock || 0);
                     const row = e.target.closest('.linea-producto');
                     const inputCantidad = row.querySelector('.input-cantidad');
-                    if (stock > 0) {
+                    if (stock > 0 && inputCantidad) {
                         inputCantidad.max = stock;
                     }
                     calcularTotal();
@@ -168,7 +220,6 @@
                 const nuevaLinea = template.querySelector('.linea-producto').cloneNode(true);
                 container.appendChild(nuevaLinea);
                 
-                // Habilitar todos los botones de eliminar
                 container.querySelectorAll('.btn-eliminar-linea').forEach(btn => btn.disabled = false);
             });
         });

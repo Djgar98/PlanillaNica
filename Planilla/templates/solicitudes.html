@@ -3,116 +3,296 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Solicitudes de Anulación - PlanillaNica</title>
+    <title>Solicitudes de Anulación y Devolución - PlanillaNica</title>
+    <!-- Google Fonts & Bootstrap 5.3 -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<body>
+<body class="bg-light">
     {% include '_nav.html' %}
 
     <main class="container pb-5">
-        <div class="row align-items-center mb-4">
-            <div class="col">
-                <h3 class="fw-bold mb-1">
-                    <i class="bi bi-arrow-return-left text-primary me-2"></i>
-                    Solicitudes de Anulación / Devolución
-                </h3>
-                <p class="text-muted small mb-0">
-                    {% if puede('resolver_solicitudes') %}
-                        Administra y resuelve las solicitudes pendientes de los vendedores.
-                    {% else %}
-                        Mis solicitudes enviadas.
-                    {% endif %}
-                </p>
-            </div>
-        </div>
-
+        <!-- MENSAJES FLASH -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                        <i class="bi bi-info-circle-fill me-2"></i>{{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm mb-4" role="alert">
+                        <i class="bi bi-info-circle-fill me-2"></i> {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
                     </div>
                 {% endfor %}
             {% endif %}
         {% endwith %}
 
-        <div class="card bg-white shadow-sm">
+        <!-- CABECERA -->
+        <div class="row align-items-center mb-4">
+            <div class="col-md-7">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="badge bg-primary-subtle text-primary fw-semibold px-2 py-1">
+                        <i class="bi bi-arrow-return-left me-1"></i> Control de Operaciones
+                    </span>
+                    <span class="text-muted small">Supervisión & Auditoría de Ventas</span>
+                </div>
+                <h3 class="fw-bold text-slate-900 mb-1">Solicitudes de Anulación y Devolución</h3>
+                <p class="text-muted small mb-0">
+                    {% if puede('resolver_solicitudes') %}
+                        Administración, control de motivos y resolución de reversiones solicitadas por el equipo comercial.
+                    {% else %}
+                        Historial y estado de las solicitudes de reversión de ventas que has emitido.
+                    {% endif %}
+                </p>
+            </div>
+            <div class="col-md-5 text-md-end mt-3 mt-md-0 d-flex gap-2 justify-content-md-end">
+                <a href="{{ url_for('ventas') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 fw-medium shadow-sm">
+                    <i class="bi bi-cart3 me-1"></i> Ir a Ventas
+                </a>
+                {% if puede('consultar_reportes_ventas') %}
+                <a href="{{ url_for('reporte_ventas') }}" class="btn btn-outline-primary btn-sm px-3 py-2 fw-medium shadow-sm">
+                    <i class="bi bi-file-earmark-bar-graph me-1"></i> Reporte Comercial
+                </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- CÁLCULO DE MÉTRICAS -->
+        {% set total_sols = solicitudes | length %}
+        {% set pendientes = namespace(count=0, monto=0) %}
+        {% set aprobadas = namespace(count=0, monto=0) %}
+        {% set rechazadas = namespace(count=0) %}
+        {% for s in solicitudes %}
+            {% if s.estado == 'pendiente' %}
+                {% set pendientes.count = pendientes.count + 1 %}
+                {% set pendientes.monto = pendientes.monto + (s.total or 0) %}
+            {% elif s.estado == 'aprobada' %}
+                {% set aprobadas.count = aprobadas.count + 1 %}
+                {% set aprobadas.monto = aprobadas.monto + (s.total or 0) %}
+            {% else %}
+                {% set rechazadas.count = rechazadas.count + 1 %}
+            {% endif %}
+        {% endfor %}
+
+        <!-- TARJETAS DE ESTADÍSTICAS -->
+        <div class="row g-3 mb-4">
+            <div class="col-sm-6 col-lg-3">
+                <div class="card border-0 shadow-sm bg-white rounded-3 h-100 hover-lift">
+                    <div class="card-body p-3 d-flex align-items-center gap-3">
+                        <div class="bg-primary bg-opacity-10 text-primary p-3 rounded-3 fs-4">
+                            <i class="bi bi-inbox-fill"></i>
+                        </div>
+                        <div>
+                            <span class="text-muted small d-block">Total Solicitudes</span>
+                            <span class="fs-4 fw-bold text-slate-800">{{ total_sols }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-3">
+                <div class="card border-0 shadow-sm bg-white rounded-3 h-100 hover-lift">
+                    <div class="card-body p-3 d-flex align-items-center gap-3">
+                        <div class="bg-warning bg-opacity-10 text-warning p-3 rounded-3 fs-4">
+                            <i class="bi bi-hourglass-split"></i>
+                        </div>
+                        <div>
+                            <span class="text-muted small d-block">Pendientes de Firma</span>
+                            <span class="fs-4 fw-bold text-warning">{{ pendientes.count }}</span>
+                            <small class="text-muted d-block" style="font-size: 0.72rem;">C$ {{ "%.2f"|format(pendientes.monto) }}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-3">
+                <div class="card border-0 shadow-sm bg-white rounded-3 h-100 hover-lift">
+                    <div class="card-body p-3 d-flex align-items-center gap-3">
+                        <div class="bg-success bg-opacity-10 text-success p-3 rounded-3 fs-4">
+                            <i class="bi bi-check-circle-fill"></i>
+                        </div>
+                        <div>
+                            <span class="text-muted small d-block">Aprobadas / Revertidas</span>
+                            <span class="fs-4 fw-bold text-success">{{ aprobadas.count }}</span>
+                            <small class="text-muted d-block" style="font-size: 0.72rem;">Stock restituido</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-3">
+                <div class="card border-0 shadow-sm bg-white rounded-3 h-100 hover-lift">
+                    <div class="card-body p-3 d-flex align-items-center gap-3">
+                        <div class="bg-danger bg-opacity-10 text-danger p-3 rounded-3 fs-4">
+                            <i class="bi bi-x-circle-fill"></i>
+                        </div>
+                        <div>
+                            <span class="text-muted small d-block">Rechazadas</span>
+                            <span class="fs-4 fw-bold text-danger">{{ rechazadas.count }}</span>
+                            <small class="text-muted d-block" style="font-size: 0.72rem;">Venta mantenida</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FILTROS Y BÚSQUEDA RÁPIDA -->
+        <div class="card border-0 shadow-sm bg-white rounded-3 mb-4">
+            <div class="card-body p-3">
+                <div class="row g-2 align-items-center">
+                    <div class="col-12 col-md-auto fw-semibold text-slate-700 me-2">
+                        <i class="bi bi-funnel text-muted me-1"></i> Filtrar Lista:
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                            <input type="text" id="filtroTexto" class="form-control border-start-0" placeholder="Buscar venta, usuario, motivo...">
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <select id="filtroEstado" class="form-select form-select-sm">
+                            <option value="">-- Todos los Estados --</option>
+                            <option value="pendiente">Pendientes</option>
+                            <option value="aprobada">Aprobadas</option>
+                            <option value="rechazada">Rechazadas</option>
+                        </select>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <select id="filtroTipo" class="form-select form-select-sm">
+                            <option value="">-- Todos los Tipos --</option>
+                            <option value="anulacion">Anulación</option>
+                            <option value="devolucion">Devolución</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-auto ms-auto d-flex gap-2">
+                        <button type="button" class="btn btn-light border btn-sm text-muted" id="btnLimpiarFiltros">
+                            <i class="bi bi-x-circle me-1"></i> Restablecer
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TABLA DE SOLICITUDES -->
+        <div class="card border-0 shadow-sm bg-white rounded-3 overflow-hidden">
             <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
+                <table class="table table-hover align-middle mb-0" id="tablaSolicitudes">
+                    <thead class="table-light text-slate-700 small text-uppercase">
                         <tr>
-                            <th>ID</th>
-                            <th>Venta #</th>
-                            <th>Tipo</th>
-                            <th>Motivo</th>
-                            <th>Solicitado por</th>
-                            <th>Fecha Solicitud</th>
+                            <th class="ps-4">ID</th>
+                            <th>Venta Ref.</th>
+                            <th>Tipo Solicitud</th>
+                            <th style="min-width: 200px;">Motivo / Justificación</th>
+                            <th>Solicitante</th>
+                            <th>Fecha</th>
                             <th>Monto</th>
                             <th>Estado</th>
                             {% if puede('resolver_solicitudes') %}
-                            <th class="text-end">Acciones</th>
+                            <th class="text-end pe-4">Resolución</th>
                             {% endif %}
                         </tr>
                     </thead>
                     <tbody>
                         {% for sol in solicitudes %}
-                        <tr>
-                            <td class="text-muted small">{{ sol.id }}</td>
-                            <td>
-                                <a href="{{ url_for('detalle_venta', venta_id=sol.venta_id) }}" class="text-decoration-none fw-semibold">
-                                    #{{ sol.venta_id }}
-                                </a>
+                        <tr class="sol-fila" data-estado="{{ sol.estado }}" data-tipo="{{ sol.tipo }}">
+                            <!-- ID -->
+                            <td class="ps-4 text-muted small fw-semibold">
+                                #{{ sol.id }}
                             </td>
+
+                            <!-- Venta -->
+                            <td>
+                                <a href="{{ url_for('detalle_venta', venta_id=sol.venta_id) }}" class="fw-bold text-primary text-decoration-none d-flex align-items-center gap-1">
+                                    <i class="bi bi-receipt"></i> Venta #{{ sol.venta_id }}
+                                </a>
+                                {% if sol.venta_fecha %}
+                                <small class="text-muted d-block" style="font-size: 0.72rem;">{{ sol.venta_fecha[:10] }}</small>
+                                {% endif %}
+                            </td>
+
+                            <!-- Tipo -->
                             <td>
                                 {% if sol.tipo == 'anulacion' %}
-                                    <span class="badge text-bg-danger">Anulación</span>
+                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2 py-1 small">
+                                        <i class="bi bi-x-octagon-fill me-1"></i> Anulación
+                                    </span>
                                 {% else %}
-                                    <span class="badge text-bg-warning text-dark">Devolución</span>
+                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-2 py-1 small">
+                                        <i class="bi bi-arrow-return-left me-1"></i> Devolución
+                                    </span>
                                 {% endif %}
                             </td>
-                            <td class="small">{{ sol.motivo }}</td>
-                            <td class="small">{{ sol.usuario }}</td>
-                            <td class="small text-nowrap">{{ sol.fecha_solicitud[:16] if sol.fecha_solicitud else '—' }}</td>
-                            <td class="small fw-semibold">C$ {{ "%.2f"|format(sol.total) }}</td>
+
+                            <!-- Motivo -->
+                            <td>
+                                <span class="d-block small text-slate-800 fw-medium text-wrap">{{ sol.motivo }}</span>
+                            </td>
+
+                            <!-- Solicitante -->
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-person-circle text-muted"></i>
+                                    <span class="small fw-semibold text-slate-700">{{ sol.usuario }}</span>
+                                </div>
+                            </td>
+
+                            <!-- Fecha -->
+                            <td class="small text-muted text-nowrap">
+                                <i class="bi bi-calendar3 me-1"></i>{{ sol.fecha_solicitud[:16] if sol.fecha_solicitud else '—' }}
+                            </td>
+
+                            <!-- Monto -->
+                            <td class="fw-bold text-slate-900 small">
+                                C$ {{ "%.2f"|format(sol.total or 0) }}
+                            </td>
+
+                            <!-- Estado -->
                             <td>
                                 {% if sol.estado == 'pendiente' %}
-                                    <span class="badge text-bg-warning text-dark"><i class="bi bi-hourglass-split me-1"></i>Pendiente</span>
+                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-2 py-1 small">
+                                        <i class="bi bi-hourglass-split me-1"></i> Pendiente
+                                    </span>
                                 {% elif sol.estado == 'aprobada' %}
-                                    <span class="badge text-bg-success"><i class="bi bi-check-circle-fill me-1"></i>Aprobada</span>
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2 py-1 small">
+                                        <i class="bi bi-check-circle-fill me-1"></i> Aprobada
+                                    </span>
                                 {% else %}
-                                    <span class="badge text-bg-secondary"><i class="bi bi-x-circle-fill me-1"></i>Rechazada</span>
+                                    <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill px-2 py-1 small">
+                                        <i class="bi bi-x-circle-fill me-1"></i> Rechazada
+                                    </span>
                                 {% endif %}
                             </td>
+
+                            <!-- Acciones (si tiene permiso) -->
                             {% if puede('resolver_solicitudes') %}
-                            <td class="text-end">
+                            <td class="text-end pe-4">
                                 {% if sol.estado == 'pendiente' %}
                                 <div class="d-flex gap-1 justify-content-end">
-                                    <form method="POST" action="{{ url_for('resolver_solicitud', solicitud_id=sol.id) }}" onsubmit="return confirm('¿Aprobar esta solicitud? Se restaurará el stock.')">
+                                    <form method="POST" action="{{ url_for('resolver_solicitud', solicitud_id=sol.id) }}" onsubmit="return confirm('¿Aprobar esta solicitud? Se revertirá la venta y se restaurará el stock en inventario.');">
                                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                                         <input type="hidden" name="accion" value="aprobar">
-                                        <button class="btn btn-sm btn-success"><i class="bi bi-check-lg"></i> Aprobar</button>
+                                        <button class="btn btn-sm btn-success px-2 py-1 fw-semibold shadow-sm" title="Aprobar Solicitud">
+                                            <i class="bi bi-check-lg me-1"></i> Aprobar
+                                        </button>
                                     </form>
-                                    <form method="POST" action="{{ url_for('resolver_solicitud', solicitud_id=sol.id) }}">
+                                    <form method="POST" action="{{ url_for('resolver_solicitud', solicitud_id=sol.id) }}" onsubmit="return confirm('¿Rechazar esta solicitud? La venta permanecerá en estado completada.');">
                                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                                         <input type="hidden" name="accion" value="rechazar">
-                                        <button class="btn btn-sm btn-outline-danger"><i class="bi bi-x-lg"></i> Rechazar</button>
+                                        <button class="btn btn-sm btn-outline-danger px-2 py-1" title="Rechazar Solicitud">
+                                            <i class="bi bi-x-lg me-1"></i> Rechazar
+                                        </button>
                                     </form>
                                 </div>
                                 {% else %}
-                                <span class="text-muted small">Resuelta</span>
+                                <span class="badge bg-light text-muted border small">
+                                    <i class="bi bi-lock me-1"></i> Resuelta
+                                </span>
                                 {% endif %}
                             </td>
                             {% endif %}
                         </tr>
                         {% else %}
-                        <tr>
-                            <td colspan="9" class="text-center py-5 text-muted">
-                                <i class="bi bi-check2-circle fs-2 d-block mb-2"></i>
-                                No hay solicitudes registradas.
+                        <tr id="filaSinDatos">
+                            <td colspan="{% if puede('resolver_solicitudes') %}9{% else %}8{% endif %}" class="text-center py-5 text-muted">
+                                <i class="bi bi-inbox display-4 text-slate-300 d-block mb-3"></i>
+                                <h6 class="fw-semibold text-slate-700 mb-1">No hay solicitudes registradas</h6>
+                                <p class="small text-muted mb-0">Las solicitudes de anulación y devolución enviadas aparecerán en esta bandeja de auditoría.</p>
                             </td>
                         </tr>
                         {% endfor %}
@@ -123,5 +303,49 @@
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const filtroTexto = document.getElementById('filtroTexto');
+            const filtroEstado = document.getElementById('filtroEstado');
+            const filtroTipo = document.getElementById('filtroTipo');
+            const btnLimpiar = document.getElementById('btnLimpiarFiltros');
+            const filas = document.querySelectorAll('.sol-fila');
+
+            function filtrar() {
+                const texto = (filtroTexto.value || '').toLowerCase().trim();
+                const estado = (filtroEstado.value || '').toLowerCase();
+                const tipo = (filtroTipo.value || '').toLowerCase();
+
+                filas.forEach(fila => {
+                    const contenido = fila.textContent.toLowerCase();
+                    const estadoFila = (fila.getAttribute('data-estado') || '').toLowerCase();
+                    const tipoFila = (fila.getAttribute('data-tipo') || '').toLowerCase();
+
+                    const coincideTexto = !texto || contenido.includes(texto);
+                    const coincideEstado = !estado || estadoFila === estado;
+                    const coincideTipo = !tipo || tipoFila === tipo;
+
+                    if (coincideTexto && coincideEstado && coincideTipo) {
+                        fila.style.display = '';
+                    } else {
+                        fila.style.display = 'none';
+                    }
+                });
+            }
+
+            if (filtroTexto) filtroTexto.addEventListener('input', filtrar);
+            if (filtroEstado) filtroEstado.addEventListener('change', filtrar);
+            if (filtroTipo) filtroTipo.addEventListener('change', filtrar);
+
+            if (btnLimpiar) {
+                btnLimpiar.addEventListener('click', function() {
+                    if (filtroTexto) filtroTexto.value = '';
+                    if (filtroEstado) filtroEstado.value = '';
+                    if (filtroTipo) filtroTipo.value = '';
+                    filtrar();
+                });
+            }
+        });
+    </script>
 </body>
 </html>

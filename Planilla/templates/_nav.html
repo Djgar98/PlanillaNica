@@ -49,6 +49,10 @@
                                     class="bi bi-wallet2 me-2"></i> Pagos Diferidos (Abonos)</a></li>
                         <li><a class="dropdown-item fw-semibold text-success"
                                 href="{{ url_for('modulo_aguinaldo') }}"><i class="bi bi-gift-fill me-2"></i> Cálculo de Aguinaldo</a></li>
+                        <li><a class="dropdown-item fw-semibold text-warning-emphasis" href="{{ url_for('vacaciones') }}"><i
+                                    class="bi bi-sun-fill me-2 text-warning"></i> Control de Vacaciones</a></li>
+                        <li><a class="dropdown-item fw-semibold text-danger" href="{{ url_for('liquidaciones') }}"><i
+                                    class="bi bi-file-earmark-person-fill me-2 text-danger"></i> Liquidaciones (Despido/Renuncia)</a></li>
                         {% endif %}
 
                         {% if puede('gestionar_empleados') %}
@@ -64,17 +68,17 @@
                 </li>
                 {% endif %}
 
-                {# MÓDULO INVENTARIO & PRODUCTOS #}
+                {# MÓDULO INVENTARIO & PRODUCTOS TECNOLÓGICOS #}
                 {% if puede('consultar_inventario') or puede('gestionar_productos') or puede('gestionar_categorias') or puede('consultar_reportes_inventario') %}
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle active" href="#" role="button" data-bs-toggle="dropdown"
                         aria-expanded="false">
-                        <i class="bi bi-box-seam-fill me-1"></i> Inventario
+                        <i class="bi bi-cpu-fill me-1 text-info"></i> Inventario Tech
                     </a>
                     <ul class="dropdown-menu shadow-sm border-0">
                         {% if puede('consultar_inventario') %}
                         <li><a class="dropdown-item" href="{{ url_for('inventario') }}"><i
-                                    class="bi bi-list-ul me-2 text-muted"></i> Productos</a></li>
+                                    class="bi bi-laptop me-2 text-muted"></i> Catálogo Tecnológico</a></li>
                         {% endif %}
 
                         {% if puede('gestionar_categorias') %}
@@ -82,11 +86,11 @@
                             <hr class="dropdown-divider">
                         </li>
                         <li><a class="dropdown-item" href="{{ url_for('categorias') }}"><i
-                                    class="bi bi-tags me-2"></i>Categorías</a></li>
+                                    class="bi bi-tags me-2 text-muted"></i>Categorías Tech</a></li>
                         <li><a class="dropdown-item" href="{{ url_for('catalogo', tipo='marcas') }}"><i
-                                    class="bi bi-tag-fill me-2"></i>Marcas</a></li>
+                                    class="bi bi-tag-fill me-2 text-muted"></i>Marcas Tech</a></li>
                         <li><a class="dropdown-item" href="{{ url_for('catalogo', tipo='tipos') }}"><i
-                                    class="bi bi-box-fill me-2"></i>Tipos de Producto</a></li>
+                                    class="bi bi-hdd-network me-2 text-muted"></i>Tipos de Dispositivo</a></li>
                         {% endif %}
 
                         {% if puede('consultar_reportes_inventario') or puede('consultar_reportes_auditoria') %}
@@ -121,6 +125,11 @@
                         {% if puede('resolver_solicitudes') or puede('solicitar_anulacion') %}
                         <li><a class="dropdown-item" href="{{ url_for('solicitudes') }}"><i
                                     class="bi bi-arrow-return-left me-2 text-muted"></i> Solicitudes Anulación</a></li>
+                        {% endif %}
+
+                        {% if puede('consultar_todas_ventas') or puede('consultar_ventas_propias') %}
+                        <li><a class="dropdown-item" href="{{ url_for('garantias') }}"><i
+                                    class="bi bi-shield-check me-2 text-muted"></i> Garantías</a></li>
                         {% endif %}
 
                         {% if puede('consultar_reportes_ventas') or puede('consultar_reportes_financieros') %}

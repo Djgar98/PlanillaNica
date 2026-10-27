@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Certificado de Garantía {{ garantia.codigo }} - PlanillaNica</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8fafc;
+            font-family: 'Inter', sans-serif;
+            color: #1e293b;
+        }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .cert-card {
+            max-width: 820px;
+            margin: 40px auto;
+            background: #fff;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+            border: 2px solid #e2e8f0;
+            position: relative;
+        }
+        .cert-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 8px;
+            background: linear-gradient(90deg, #0d6efd, #0dcaf0, #198754);
+            border-top-left-radius: 14px;
+            border-top-right-radius: 14px;
+        }
+        .cert-stamp {
+            display: inline-block;
+            padding: 6px 16px;
+            border-radius: 8px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 13px;
+        }
+        .policy-box {
+            background-color: #f8fafc;
+            border-left: 4px solid #cbd5e1;
+            padding: 12px 16px;
+            font-size: 12px;
+            color: #64748b;
+            line-height: 1.5;
+        }
+        .signature-line {
+            border-top: 1px solid #94a3b8;
+            margin-top: 50px;
+            padding-top: 8px;
+            font-size: 13px;
+            color: #475569;
+        }
+
+        @media print {
+            body {
+                background: #fff !important;
+                padding: 0;
+                margin: 0;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .cert-card {
+                box-shadow: none !important;
+                border: 1px solid #cbd5e1 !important;
+                margin: 0 auto !important;
+                padding: 25px !important;
+                max-width: 100% !important;
+            }
+        }
+    </style>
+</head>
+<body class="py-4">
+    <!-- BARRA SUPERIOR DE ACCIONES (NO SE IMPRIME) -->
+    <div class="container mb-4 no-print" style="max-width: 820px;">
+        <div class="d-flex justify-content-between align-items-center">
+            <a href="{{ url_for('garantias') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left me-1"></i> Volver al Módulo de Garantías
+            </a>
+            <div class="d-flex gap-2">
+                <a href="{{ url_for('detalle_venta', venta_id=garantia.venta_id) }}" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-receipt me-1"></i> Ver Venta #{{ garantia.venta_id }}
+                </a>
+                <button onclick="window.print()" class="btn btn-primary btn-sm shadow-sm">
+                    <i class="bi bi-printer me-1"></i> Imprimir Certificado
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- DOCUMENTO OFICIAL CERTIFICADO -->
+    <main class="cert-card">
+        <!-- CABECERA -->
+        <div class="d-flex justify-content-between align-items-start border-bottom pb-4 mb-4">
+            <div>
+                <h4 class="fw-bold mb-1 text-primary d-flex align-items-center gap-2">
+                    <i class="bi bi-shield-check"></i> PlanillaNica
+                </h4>
+                <div class="text-muted small">Sistema de Gestión de Ventas, Garantías e Inventario</div>
+                <div class="text-secondary small">Certificado Oficial de Cobertura y Garantía Técnica</div>
+            </div>
+            <div class="text-end">
+                <div class="badge bg-light text-dark border font-mono fs-6 px-3 py-2">
+                    {{ garantia.codigo }}
+                </div>
+                <div class="text-muted small mt-1">Emisión: {{ garantia.fecha_inicio[:10] }}</div>
+            </div>
+        </div>
+
+        <!-- ESTADO ACTUAL DE LA GARANTÍA -->
+        <div class="d-flex justify-content-between align-items-center bg-light p-3 rounded mb-4">
+            <div>
+                <span class="text-muted small text-uppercase fw-semibold d-block">Estado de Cobertura</span>
+                {% if garantia.estado == 'activa' %}
+                    {% if garantia.es_por_vencer %}
+                        <span class="cert-stamp bg-warning-subtle text-warning-emphasis border border-warning">
+                            <i class="bi bi-clock-history me-1"></i> Por Vencer (Quedan {{ garantia.dias_restantes }} días)
+                        </span>
+                    {% else %}
+                        <span class="cert-stamp bg-success-subtle text-success border border-success">
+                            <i class="bi bi-shield-check me-1"></i> Vigente (Activa - {{ garantia.dias_restantes }} días restantes)
+                        </span>
+                    {% endif %}
+                {% elif garantia.estado == 'vencida' %}
+                    <span class="cert-stamp bg-danger-subtle text-danger border border-danger">
+                        <i class="bi bi-shield-x me-1"></i> Cobertura Vencida (Expiró el {{ garantia.fecha_vencimiento[:10] }})
+                    </span>
+                {% elif garantia.estado == 'ejecutada' %}
+                    <span class="cert-stamp bg-primary-subtle text-primary border border-primary">
+                        <i class="bi bi-check-circle-fill me-1"></i> Garantía Ejecutada / Reclamada
+                    </span>
+                {% elif garantia.estado == 'anulada' %}
+                    <span class="cert-stamp bg-secondary-subtle text-secondary border border-secondary">
+                        <i class="bi bi-slash-circle me-1"></i> Anulada por Devolución de Venta
+                    </span>
+                {% endif %}
+            </div>
+            <div class="text-end">
+                <span class="text-muted small text-uppercase fw-semibold d-block">Plazo Otorgado</span>
+                <span class="fw-bold fs-6">{{ garantia.meses_cobertura }} Meses</span>
+            </div>
+        </div>
+
+        <!-- CUADRÍCULA DE DATOS -->
+        <div class="row g-4 mb-4">
+            <!-- Columna Cliente y Venta -->
+            <div class="col-md-6">
+                <div class="border rounded p-3 h-100 bg-white">
+                    <h6 class="fw-bold text-dark border-bottom pb-2 mb-3">
+                        <i class="bi bi-person-fill text-muted me-1"></i> Datos del Cliente y Compra
+                    </h6>
+                    <div class="row g-2 small">
+                        <div class="col-4 text-muted">Cliente:</div>
+                        <div class="col-8 fw-semibold">{{ garantia.cliente or 'Consumidor Final' }}</div>
+
+                        <div class="col-4 text-muted">N° Ticket / Venta:</div>
+                        <div class="col-8">
+                            <a href="{{ url_for('detalle_venta', venta_id=garantia.venta_id) }}" class="text-decoration-none fw-bold">
+                                Factura #{{ garantia.venta_id }}
+                            </a>
+                        </div>
+
+                        <div class="col-4 text-muted">Fecha Compra:</div>
+                        <div class="col-8">{{ garantia.venta_fecha }}</div>
+
+                        <div class="col-4 text-muted">Vendedor:</div>
+                        <div class="col-8">{{ garantia.vendedor_usuario }}</div>
+
+                        <div class="col-4 text-muted">Estado Venta:</div>
+                        <div class="col-8 text-uppercase fw-semibold">{{ garantia.venta_estado }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Columna Producto y Especificaciones -->
+            <div class="col-md-6">
+                <div class="border rounded p-3 h-100 bg-white">
+                    <h6 class="fw-bold text-dark border-bottom pb-2 mb-3">
+                        <i class="bi bi-box-seam-fill text-muted me-1"></i> Ficha del Producto
+                    </h6>
+                    <div class="row g-2 small">
+                        <div class="col-4 text-muted">Producto:</div>
+                        <div class="col-8 fw-bold text-primary">{{ garantia.producto_nombre }}</div>
+
+                        <div class="col-4 text-muted">Código SKU:</div>
+                        <div class="col-8 font-mono">{{ garantia.producto_codigo }}</div>
+
+                        {% if garantia.producto_modelo %}
+                        <div class="col-4 text-muted">Modelo:</div>
+                        <div class="col-8 font-mono fw-semibold text-secondary">{{ garantia.producto_modelo }}</div>
+                        {% endif %}
+
+                        <div class="col-4 text-muted">Categoría:</div>
+                        <div class="col-8">{{ garantia.categoria_nombre or 'General' }}</div>
+
+                        <div class="col-4 text-muted">Marca / Tipo:</div>
+                        <div class="col-8">{{ garantia.marca_nombre or 'Sin Marca' }} / {{ garantia.tipo_nombre or 'Sin Tipo' }}</div>
+
+                        <div class="col-4 text-muted">Periodo:</div>
+                        <div class="col-8 fw-semibold text-dark">{{ garantia.fecha_inicio[:10] }} &rarr; {{ garantia.fecha_vencimiento[:10] }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RECUADRO SI FUE EJECUTADA -->
+        {% if garantia.estado == 'ejecutada' %}
+        <div class="border border-primary-subtle bg-primary-subtle bg-opacity-10 rounded p-4 mb-4">
+            <h6 class="fw-bold text-primary border-bottom border-primary-subtle pb-2 mb-3 d-flex align-items-center justify-content-between">
+                <span><i class="bi bi-wrench me-1"></i> Registro de Ejecución Técnica / Reclamo</span>
+                <span class="badge bg-primary text-uppercase">{{ garantia.tipo_resolucion }}</span>
+            </h6>
+            <div class="row g-3 small">
+                <div class="col-sm-6">
+                    <strong class="text-muted text-uppercase d-block mb-1">Fecha de Ejecución:</strong>
+                    <div>{{ garantia.fecha_ejecucion }}</div>
+                </div>
+                <div class="col-sm-6">
+                    <strong class="text-muted text-uppercase d-block mb-1">Atendido por:</strong>
+                    <div>{{ garantia.usuario_ejecuta_nombre or 'Personal Técnico Autorizado' }}</div>
+                </div>
+                <div class="col-12">
+                    <strong class="text-muted text-uppercase d-block mb-1">Falla Reportada por el Cliente:</strong>
+                    <div class="p-2 bg-white rounded border">{{ garantia.motivo_reclamo or 'Sin observaciones' }}</div>
+                </div>
+                <div class="col-12">
+                    <strong class="text-muted text-uppercase d-block mb-1">Diagnóstico Técnico:</strong>
+                    <div class="p-2 bg-white rounded border">{{ garantia.diagnostico or 'Diagnóstico estándar aprobado' }}</div>
+                </div>
+                <div class="col-12">
+                    <strong class="text-muted text-uppercase d-block mb-1">Solución y Dictamen Final:</strong>
+                    <div class="p-2 bg-white rounded border fw-semibold text-dark">{{ garantia.resolucion_notas }}</div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- RECUADRO SI FUE ANULADA -->
+        {% if garantia.estado == 'anulada' %}
+        <div class="alert alert-secondary mb-4 small">
+            <h6 class="alert-heading fw-bold mb-1"><i class="bi bi-info-circle me-1"></i> Garantía Anulada</h6>
+            <div>Esta garantía quedó sin validez debido a la devolución o anulación de la venta.</div>
+            {% if garantia.motivo_anulacion %}
+            <div class="mt-1 text-muted"><strong>Motivo:</strong> {{ garantia.motivo_anulacion }}</div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- TÉRMINOS Y POLÍTICAS DE GARANTÍA -->
+        <div class="policy-box mb-4 rounded">
+            <strong class="text-dark d-block mb-1">Términos y Condiciones de la Garantía Comercial:</strong>
+            <ol class="ps-3 mb-0">
+                <li>La presente garantía cubre defectos de fabricación, fallas técnicas y vicios ocultos de los componentes bajo condiciones normales de uso.</li>
+                <li>Quedan expresamente excluidos daños provocados por: golpes, caídas, humedad, derrames de líquidos, sobrecargas eléctricas o intervenciones de personal ajeno a la empresa.</li>
+                <li>Para hacer efectiva la garantía técnica, el cliente debe presentar este comprobante o el ticket de compra correspondiente.</li>
+                <li>En caso de proceder la garantía, la empresa podrá optar por la reparación técnica, el reemplazo por una unidad equivalente o la nota de crédito respectiva de conformidad con las leyes vigentes.</li>
+            </ol>
+        </div>
+
+        <!-- FIRMAS -->
+        <div class="row pt-4 text-center">
+            <div class="col-6">
+                <div class="signature-line mx-4">
+                    <strong>Firma del Cliente</strong><br>
+                    <span class="small text-muted">{{ garantia.cliente or 'Consumidor' }}</span>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="signature-line mx-4">
+                    <strong>Firma y Sello Autorizado</strong><br>
+                    <span class="small text-muted">PlanillaNica - Servicio Técnico & Ventas</span>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

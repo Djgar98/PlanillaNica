@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nueva Liquidación Laboral - PlanillaNica</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .calc-preview-card {
+            position: sticky;
+            top: 20px;
+            border-radius: 14px;
+            background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+        }
+        .concept-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px dashed #e9ecef;
+        }
+        .concept-row:last-child {
+            border-bottom: none;
+        }
+        .selection-card {
+            border: 2px solid #dee2e6;
+            border-radius: 10px;
+            padding: 12px 16px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .selection-card:hover {
+            border-color: #adb5bd;
+            background-color: #f8f9fa;
+        }
+        .selection-card.active-despido {
+            border-color: #dc3545;
+            background-color: #fff5f5;
+        }
+        .selection-card.active-renuncia {
+            border-color: #0d6efd;
+            background-color: #f0f7ff;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    {% include '_nav.html' %}
+
+    <main class="container-fluid px-lg-5 py-4">
+        <!-- MIGAS DE PAN Y ENCABEZADO -->
+        <div class="mb-4">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1 small text-muted">
+                    <li class="breadcrumb-item"><a href="{{ url_for('index') }}" class="text-decoration-none">RRHH</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('liquidaciones') }}" class="text-decoration-none">Liquidaciones</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Nueva Liquidación</li>
+                </ol>
+            </nav>
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                <div>
+                    <h2 class="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
+                        <i class="bi bi-calculator-fill text-danger"></i> Cálculo de Liquidación y Finiquito
+                    </h2>
+                    <p class="text-muted small mb-0">Cálculo en tiempo real conforme a la Ley No. 185 (Código del Trabajo de Nicaragua) y Ley No. 476.</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{{ url_for('vacaciones') }}" class="btn btn-outline-warning btn-sm text-dark">
+                        <i class="bi bi-sun-fill me-1"></i> Ver Saldo de Vacaciones
+                    </a>
+                    <a href="{{ url_for('liquidaciones') }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-arrow-left me-1"></i> Cancelar y Volver
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- MENSAJES FLASH -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm mb-4" role="alert">
+                        <i class="bi bi-info-circle-fill me-2"></i>{{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('nueva_liquidacion') }}" id="formLiquidacion">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+            <div class="row g-4">
+                <!-- COLUMNA IZQUIERDA: PARÁMETROS DE LA LIQUIDACIÓN -->
+                <div class="col-lg-7">
+                    <!-- PASO 1: COLABORADOR -->
+                    <div class="card border-0 shadow-sm mb-4 rounded-3">
+                        <div class="card-header bg-white border-0 pt-3 pb-0">
+                            <h5 class="fw-bold text-dark mb-1">
+                                <span class="badge bg-danger rounded-circle me-1">1</span> Selección del Colaborador
+                            </h5>
+                            <p class="text-muted small mb-0">Selecciona el trabajador para cargar su salario base, fecha de ingreso y saldo exacto de vacaciones.</p>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label for="empleado_id" class="form-label fw-semibold small text-muted">Empleado a Liquidar <span class="text-danger">*</span></label>
+                                <select class="form-select form-select-lg" id="empleado_id" name="empleado_id" required>
+                                    <option value="" disabled {{ 'selected' if not empleado_id_seleccionado else '' }}>-- Seleccione un empleado --</option>
+                                    {% for emp in empleados %}
+                                    <option value="{{ emp.id }}" 
+                                            data-ingreso="{{ emp.fecha_ingreso }}" 
+                                            data-salario="{{ emp.salario_base }}"
+                                            data-activo="{{ emp.activo }}"
+                                            {{ 'selected' if empleado_id_seleccionado == emp.id else '' }}>
+                                        {{ emp.nombre }} (Cédula: {{ emp.cedula }}) - Salario: C$ {{ '{:,.2f}'.format(emp.salario_base) }} {{ '[Inactivo]' if not emp.activo else '' }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label for="fecha_salida" class="form-label fw-semibold small text-muted">Fecha de Terminación Laboral <span class="text-danger">*</span></label>
+                                    <input type="date" class="form-control" id="fecha_salida" name="fecha_salida" value="{{ hoy }}" required>
+                                    <div class="form-text">Último día efectivo de trabajo.</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold small text-muted">Acción con el Colaborador</label>
+                                    <div class="form-check mt-2">
+                                        <input class="form-check-input" type="checkbox" id="dar_de_baja" name="dar_de_baja" value="1" checked>
+                                        <label class="form-check-label fw-semibold text-danger small" for="dar_de_baja">
+                                            Dar de baja automáticamente (Marcar inactivo)
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PASO 2: MOTIVO Y RÉGIMEN (Despido / Renuncia | Privada / Pública) -->
+                    <div class="card border-0 shadow-sm mb-4 rounded-3">
+                        <div class="card-header bg-white border-0 pt-3 pb-0">
+                            <h5 class="fw-bold text-dark mb-1">
+                                <span class="badge bg-danger rounded-circle me-1">2</span> Motivo y Régimen de Liquidación
+                            </h5>
+                            <p class="text-muted small mb-0">El motivo define si aplica la Indemnización por Años de Servicio (Art. 45 Ley 185).</p>
+                        </div>
+                        <div class="card-body">
+                            <!-- SELECCIÓN MOTIVO: DESPIDO VS RENUNCIA -->
+                            <label class="form-label fw-semibold small text-muted mb-2">Causal de Terminación <span class="text-danger">*</span></label>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-6">
+                                    <div class="selection-card active-despido" id="cardDespido" onclick="seleccionarMotivo('despido')">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="motivo" id="motivo_despido" value="despido" checked>
+                                            <label class="form-check-label fw-bold text-danger" for="motivo_despido">
+                                                <i class="bi bi-person-x-fill me-1"></i> Despido (Injustificado)
+                                            </label>
+                                        </div>
+                                        <div class="small text-muted mt-1 ps-4">
+                                            Incluye <strong>Indemnización Art. 45</strong> (1 mes por año primeros 3 años, 20 días por año subsiguientes, máx 5 meses).
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="selection-card" id="cardRenuncia" onclick="seleccionarMotivo('renuncia')">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="motivo" id="motivo_renuncia" value="renuncia">
+                                            <label class="form-check-label fw-bold text-primary" for="motivo_renuncia">
+                                                <i class="bi bi-box-arrow-right me-1"></i> Renuncia Voluntaria
+                                            </label>
+                                        </div>
+                                        <div class="small text-muted mt-1 ps-4">
+                                            Derechos acumulados de ley (Vacaciones + Aguinaldo + Salario pendiente). No aplica Art. 45 en sector privado.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- RÉGIMEN LABORAL -->
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label for="regimen" class="form-label fw-semibold small text-muted">Régimen Jurídico Aplicable</label>
+                                    <select class="form-select" id="regimen" name="regimen">
+                                        <option value="privada" selected>Sector Privado (Ley 185 - Código del Trabajo)</option>
+                                        <option value="publica">Sector Público (Ley 476 - Servicio Civil)</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6" id="divForzarIndemnizacion" style="display: none;">
+                                    <label class="form-label fw-semibold small text-muted">Excepción en Renuncia</label>
+                                    <div class="form-check mt-2">
+                                        <input class="form-check-input" type="checkbox" id="forzar_indemnizacion" name="forzar_indemnizacion" value="1">
+                                        <label class="form-check-label small fw-semibold text-dark" for="forzar_indemnizacion">
+                                            Pagar Indemnización Art. 45 por mutuo acuerdo / régimen público
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PASO 3: SALARIOS PENDIENTES Y OTRAS DEDUCCIONES -->
+                    <div class="card border-0 shadow-sm mb-4 rounded-3">
+                        <div class="card-header bg-white border-0 pt-3 pb-0">
+                            <h5 class="fw-bold text-dark mb-1">
+                                <span class="badge bg-danger rounded-circle me-1">3</span> Días Pendientes y Ajustes
+                            </h5>
+                            <p class="text-muted small mb-0">Indica días no pagados del período y deducciones extraordinarias.</p>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-6">
+                                    <label for="dias_salario_pendiente" class="form-label fw-semibold small text-muted">Días de Salario Ordinario Pendiente</label>
+                                    <div class="input-group">
+                                        <input type="number" step="0.5" min="0" max="30" class="form-control" id="dias_salario_pendiente" name="dias_salario_pendiente" value="0">
+                                        <span class="input-group-text">días</span>
+                                    </div>
+                                    <div class="form-text small">Días laborados no pagados en la última nómina (se deduce INSS 7%).</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="otras_deducciones" class="form-label fw-semibold small text-muted">Otras Deducciones (C$)</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">C$</span>
+                                        <input type="number" step="0.01" min="0" class="form-control" id="otras_deducciones" name="otras_deducciones" value="0.00">
+                                    </div>
+                                    <div class="form-text small">Préstamos personales, anticipos, daños, etc.</div>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="motivo_deducciones" class="form-label fw-semibold small text-muted">Detalle / Concepto de Otras Deducciones</label>
+                                <input type="text" class="form-control" id="motivo_deducciones" name="motivo_deducciones" placeholder="Ej: Saldo pendiente de préstamo a colaborador">
+                            </div>
+
+                            <div class="mb-2">
+                                <label for="observaciones" class="form-label fw-semibold small text-muted">Observaciones Generales</label>
+                                <textarea class="form-control" id="observaciones" name="observaciones" rows="2" placeholder="Notas internas sobre la liquidación o entrega de solvencias..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- COLUMNA DERECHA: PANEL DE CÁLCULO EN TIEMPO REAL -->
+                <div class="col-lg-5">
+                    <div class="card border-0 shadow-sm calc-preview-card p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
+                                <i class="bi bi-receipt text-danger"></i> Liquidación Previa
+                            </h5>
+                            <span class="badge bg-secondary-subtle text-secondary font-mono small" id="badgeAntiguedad">0a 0m 0d</span>
+                        </div>
+
+                        <!-- ESTADO VACÍO SI NO SELECCIONA EMPLEADO -->
+                        <div id="panelVacio" class="text-center py-5">
+                            <div class="text-muted mb-3"><i class="bi bi-person-bounding-box fs-1"></i></div>
+                            <h6 class="fw-semibold text-secondary">Selecciona un Colaborador</h6>
+                            <p class="small text-muted">El sistema calculará automáticamente las vacaciones pendientes, aguinaldo e indemnización legal.</p>
+                        </div>
+
+                        <!-- DETALLE DINÁMICO DEL CÁLCULO -->
+                        <div id="panelCalculo" style="display: none;">
+                            <!-- DATOS DEL COLABORADOR -->
+                            <div class="bg-white rounded-3 p-3 mb-3 border">
+                                <div class="fw-bold text-dark fs-6" id="prevNombre">-</div>
+                                <div class="text-muted small">Cédula: <span id="prevCedula" class="font-mono">-</span> | Cargo: <span id="prevCargo">-</span></div>
+                                <div class="text-muted small">Fecha Ingreso: <span id="prevIngreso" class="font-mono">-</span></div>
+                                <div class="text-muted small">Salario Base: <strong class="text-dark font-mono">C$ <span id="prevSalarioBase">0.00</span></strong> (Diario: C$ <span id="prevSalarioDiario" class="font-mono">0.00</span>)</div>
+                            </div>
+
+                            <!-- INGRESOS DEVENGADOS -->
+                            <div class="mb-3">
+                                <div class="text-uppercase small fw-bold text-success mb-2 d-flex align-items-center gap-1">
+                                    <i class="bi bi-plus-circle-fill"></i> Conceptos a Liquidar (Ingresos)
+                                </div>
+                                <div class="bg-white rounded-3 p-3 border">
+                                    <!-- Salario Pendiente -->
+                                    <div class="concept-row">
+                                        <div>
+                                            <span class="small fw-semibold text-dark">Salario Pendiente</span>
+                                            <span class="badge bg-light text-muted small ms-1 font-mono" id="prevDiasSalario">0 días</span>
+                                        </div>
+                                        <div class="font-mono fw-bold text-dark">C$ <span id="prevMontoSalario">0.00</span></div>
+                                    </div>
+
+                                    <!-- Vacaciones Pendientes -->
+                                    <div class="concept-row">
+                                        <div>
+                                            <span class="small fw-semibold text-dark">Vacaciones Pendientes</span>
+                                            <div class="text-muted small" style="font-size: 0.75rem;">
+                                                Saldo exacto: <strong class="font-mono text-warning" id="prevDiasVacaciones">0.00</strong> días
+                                            </div>
+                                        </div>
+                                        <div class="font-mono fw-bold text-dark">C$ <span id="prevMontoVacaciones">0.00</span></div>
+                                    </div>
+
+                                    <!-- Aguinaldo Proporcional -->
+                                    <div class="concept-row">
+                                        <div>
+                                            <span class="small fw-semibold text-dark">Décimo Tercer Mes / Aguinaldo</span>
+                                            <div class="text-muted small" style="font-size: 0.75rem;">
+                                                Acumulado: <strong class="font-mono text-info" id="prevDiasAguinaldo">0.00</strong> días
+                                            </div>
+                                        </div>
+                                        <div class="font-mono fw-bold text-dark">C$ <span id="prevMontoAguinaldo">0.00</span></div>
+                                    </div>
+
+                                    <!-- Indemnización Art. 45 -->
+                                    <div class="concept-row" id="rowIndemnizacion">
+                                        <div>
+                                            <span class="small fw-semibold text-danger">Indemnización por Años (Art. 45)</span>
+                                            <div class="text-muted small" style="font-size: 0.75rem;" id="prevDetalleIndemnizacion">
+                                                Reconocido: <strong class="font-mono" id="prevMesesIndemnizacion">0.00</strong> meses
+                                            </div>
+                                        </div>
+                                        <div class="font-mono fw-bold text-danger">C$ <span id="prevMontoIndemnizacion">0.00</span></div>
+                                    </div>
+
+                                    <!-- TOTAL BRUTO -->
+                                    <div class="d-flex justify-content-between align-items-center pt-2 mt-2 border-top">
+                                        <span class="fw-bold text-dark small">Total Devengado Bruto:</span>
+                                        <span class="font-mono fw-bold text-dark fs-6">C$ <span id="prevTotalBruto">0.00</span></span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- DEDUCCIONES -->
+                            <div class="mb-3">
+                                <div class="text-uppercase small fw-bold text-danger mb-2 d-flex align-items-center gap-1">
+                                    <i class="bi bi-dash-circle-fill"></i> Deducciones Aplicables
+                                </div>
+                                <div class="bg-white rounded-3 p-3 border">
+                                    <div class="concept-row">
+                                        <div>
+                                            <span class="small text-muted">INSS Laboral (7% s/ Salario Pendiente)</span>
+                                        </div>
+                                        <div class="font-mono text-danger">- C$ <span id="prevInssSalario">0.00</span></div>
+                                    </div>
+
+                                    <div class="concept-row" id="rowOtrasDeducciones">
+                                        <div>
+                                            <span class="small text-muted">Otras Deducciones Autorizadas</span>
+                                        </div>
+                                        <div class="font-mono text-danger">- C$ <span id="prevOtrasDeducciones">0.00</span></div>
+                                    </div>
+
+                                    <div class="d-flex justify-content-between align-items-center pt-2 mt-2 border-top">
+                                        <span class="fw-bold text-muted small">Total Deducciones:</span>
+                                        <span class="font-mono fw-bold text-danger">C$ <span id="prevTotalDeducciones">0.00</span></span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- TOTAL NETO FINAL -->
+                            <div class="p-3 bg-danger text-white rounded-3 shadow-sm mb-4">
+                                <div class="small text-uppercase fw-semibold text-white-50">Total Neto a Pagar al Colaborador</div>
+                                <div class="display-6 fw-bold font-mono">C$ <span id="prevTotalNeto">0.00</span></div>
+                                <div class="small text-white-50 mt-1">Conforme a la legislación laboral vigente en Nicaragua.</div>
+                            </div>
+
+                            <!-- BOTÓN DE CONFIRMACIÓN -->
+                            <div class="d-grid gap-2">
+                                <button type="submit" class="btn btn-danger btn-lg fw-bold shadow-sm" id="btnGuardarLiquidacion">
+                                    <i class="bi bi-check2-circle me-1"></i> Guardar y Generar Finiquito
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function seleccionarMotivo(motivo) {
+            const rDespido = document.getElementById('motivo_despido');
+            const rRenuncia = document.getElementById('motivo_renuncia');
+            const cardDespido = document.getElementById('cardDespido');
+            const cardRenuncia = document.getElementById('cardRenuncia');
+            const divForzar = document.getElementById('divForzarIndemnizacion');
+
+            if (motivo === 'despido') {
+                rDespido.checked = true;
+                cardDespido.className = 'selection-card active-despido';
+                cardRenuncia.className = 'selection-card';
+                divForzar.style.display = 'none';
+            } else {
+                rRenuncia.checked = true;
+                cardRenuncia.className = 'selection-card active-renuncia';
+                cardDespido.className = 'selection-card';
+                divForzar.style.display = 'block';
+            }
+            solicitarCalculoAjax();
+        }
+
+        // Formateador de moneda Córdobas
+        function fmt(num) {
+            return Number(num || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        // Llamado AJAX para cálculo en tiempo real
+        function solicitarCalculoAjax() {
+            const empId = document.getElementById('empleado_id').value;
+            if (!empId) {
+                document.getElementById('panelVacio').style.display = 'block';
+                document.getElementById('panelCalculo').style.display = 'none';
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('empleado_id', empId);
+            formData.append('fecha_salida', document.getElementById('fecha_salida').value);
+            formData.append('motivo', document.querySelector('input[name="motivo"]:checked').value);
+            formData.append('regimen', document.getElementById('regimen').value);
+            formData.append('dias_salario_pendiente', document.getElementById('dias_salario_pendiente').value || 0);
+            formData.append('otras_deducciones', document.getElementById('otras_deducciones').value || 0);
+            formData.append('motivo_deducciones', document.getElementById('motivo_deducciones').value || '');
+            
+            const forzar = document.getElementById('forzar_indemnizacion').checked;
+            if (forzar) {
+                formData.append('forzar_indemnizacion', '1');
+            }
+
+            // CSRF
+            const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+            formData.append('csrf_token', csrfToken);
+
+            fetch("{{ url_for('calcular_liquidacion_ajax') }}", {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(res => {
+                if (res.success && res.datos) {
+                    actualizarPanelPreview(res.datos);
+                } else if (res.error) {
+                    console.error("Error en cálculo:", res.error);
+                }
+            })
+            .catch(err => console.error("Error de red:", err));
+        }
+
+        function actualizarPanelPreview(d) {
+            document.getElementById('panelVacio').style.display = 'none';
+            document.getElementById('panelCalculo').style.display = 'block';
+
+            document.getElementById('badgeAntiguedad').textContent = `${d.anios_servicio}a ${d.meses_servicio}m ${d.dias_servicio}d`;
+            document.getElementById('prevNombre').textContent = d.nombre;
+            document.getElementById('prevCedula').textContent = d.cedula;
+            document.getElementById('prevCargo').textContent = d.cargo;
+            document.getElementById('prevIngreso').textContent = d.fecha_ingreso;
+            document.getElementById('prevSalarioBase').textContent = fmt(d.salario_base_mensual);
+            document.getElementById('prevSalarioDiario').textContent = fmt(d.salario_diario);
+
+            document.getElementById('prevDiasSalario').textContent = `${d.dias_salario_pendiente} días`;
+            document.getElementById('prevMontoSalario').textContent = fmt(d.monto_salario_pendiente);
+
+            document.getElementById('prevDiasVacaciones').textContent = Number(d.dias_vacaciones_pendientes).toFixed(2);
+            document.getElementById('prevMontoVacaciones').textContent = fmt(d.monto_vacaciones);
+
+            document.getElementById('prevDiasAguinaldo').textContent = Number(d.dias_aguinaldo_proporcional).toFixed(2);
+            document.getElementById('prevMontoAguinaldo').textContent = fmt(d.monto_aguinaldo);
+
+            if (d.aplica_indemnizacion && d.monto_indemnizacion > 0) {
+                document.getElementById('rowIndemnizacion').style.display = 'flex';
+                document.getElementById('prevMesesIndemnizacion').textContent = Number(d.meses_indemnizacion).toFixed(2);
+                document.getElementById('prevMontoIndemnizacion').textContent = fmt(d.monto_indemnizacion);
+            } else {
+                document.getElementById('rowIndemnizacion').style.display = 'none';
+            }
+
+            document.getElementById('prevTotalBruto').textContent = fmt(d.total_bruto);
+            document.getElementById('prevInssSalario').textContent = fmt(d.inss_salario_pendiente);
+            document.getElementById('prevOtrasDeducciones').textContent = fmt(d.otras_deducciones);
+            document.getElementById('prevTotalDeducciones').textContent = fmt(d.total_deducciones);
+            document.getElementById('prevTotalNeto').textContent = fmt(d.total_neto);
+        }
+
+        // Event listeners para recálculo interactivo en vivo
+        document.addEventListener('DOMContentLoaded', function() {
+            const triggers = [
+                'empleado_id', 'fecha_salida', 'regimen', 
+                'dias_salario_pendiente', 'otras_deducciones', 'forzar_indemnizacion'
+            ];
+            triggers.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('change', solicitarCalculoAjax);
+                    el.addEventListener('input', solicitarCalculoAjax);
+                }
+            });
+
+            // Si ya hay un empleado seleccionado al cargar la página
+            if (document.getElementById('empleado_id').value) {
+                solicitarCalculoAjax();
+            }
+        });
+    </script>
+</body>
+</html>

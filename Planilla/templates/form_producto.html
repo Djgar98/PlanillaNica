@@ -4,133 +4,222 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ 'Editar Producto' if producto else 'Nuevo Producto' }} - PlanillaNica</title>
+    <!-- Google Fonts & Bootstrap 5.3 -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<body>
+<body class="bg-light">
     {% include '_nav.html' %}
 
-    <main class="container pb-5" style="max-width: 820px;">
+    <main class="container pb-5" style="max-width: 900px;">
 
-        <div class="mb-4">
-            <a href="{{ url_for('inventario') }}" class="text-decoration-none text-muted small">
-                <i class="bi bi-arrow-left"></i> Volver a Inventario
-            </a>
-            <h3 class="fw-bold mt-1">
-                <i class="bi bi-{{ 'pencil-square' if producto else 'box-seam' }} text-primary me-2"></i>
-                {{ 'Editar Producto' if producto else 'Nuevo Producto' }}
-            </h3>
-        </div>
+        <!-- BREADCRUMB -->
+        <nav aria-label="breadcrumb" class="mb-3">
+            <ol class="breadcrumb small">
+                <li class="breadcrumb-item"><a href="{{ url_for('inventario') }}" class="text-decoration-none">Inventario</a></li>
+                <li class="breadcrumb-item active" aria-current="page">{{ 'Editar Ficha' if producto else 'Nuevo Producto' }}</li>
+            </ol>
+        </nav>
 
+        <!-- MENSAJES FLASH -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                        <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm mb-4" role="alert">
+                        <i class="bi bi-info-circle-fill me-2"></i> {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
                     </div>
                 {% endfor %}
             {% endif %}
         {% endwith %}
 
-        <form method="POST" class="card bg-white shadow-sm p-4 p-md-5">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-
-            <div class="row g-4">
-                <div class="col-md-4">
-                    <label class="form-label fw-semibold">Código <span class="text-danger">*</span></label>
-                    <input type="text" name="codigo" class="form-control" required
-                           value="{{ producto.codigo if producto else '' }}"
-                           placeholder="Ej: PROD-001">
-                </div>
-                <div class="col-md-8">
-                    <label class="form-label fw-semibold">Nombre del Producto <span class="text-danger">*</span></label>
-                    <input type="text" name="nombre" class="form-control" required
-                           value="{{ producto.nombre if producto else '' }}"
-                           placeholder="Nombre descriptivo del producto">
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label fw-semibold">Categoría</label>
-                    <div class="input-group">
-                        <select name="categoria_id" class="form-select">
-                            {% for cat in categorias %}
-                            <option value="{{ cat.id }}"
-                                {% if producto and (producto.get('categoria_id') == cat.id or producto.get('categoria_id') == cat.id|string) %}selected{% endif %}
-                                {% if not producto and cat.id == 1 %}selected{% endif %}>
-                                {{ cat.nombre }}
-                            </option>
-                            {% endfor %}
-                        </select>
+        <!-- CABECERA DE LA FICHA -->
+        <div class="card border-0 shadow-sm bg-white rounded-3 mb-4">
+            <div class="card-body p-4">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="bg-primary bg-opacity-10 text-primary p-3 rounded-3 fs-3">
+                        <i class="bi {{ 'bi-pencil-square' if producto else 'bi-cpu-fill' }}"></i>
+                    </div>
+                    <div>
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <span class="badge bg-primary-subtle text-primary fw-semibold px-2 py-1">
+                                <i class="bi bi-cpu me-1"></i> Catálogo Tecnológico
+                            </span>
+                            {% if producto %}
+                            <span class="badge bg-light text-secondary border font-monospace">{{ producto.codigo }}</span>
+                            {% endif %}
+                        </div>
+                        <h4 class="fw-bold mb-1 text-slate-900">{{ 'Modificar Producto Tecnológico' if producto else 'Registrar Nuevo Producto Tecnológico' }}</h4>
+                        <p class="text-muted small mb-0">Define parámetros de venta, costos de compra, modelo del fabricante, especificaciones de hardware y garantía posventa.</p>
                     </div>
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label fw-semibold">Marca</label>
-                    <select name="marca_id" class="form-select">
-                        {% for marca in marcas %}
-                        <option value="{{ marca.id }}"
-                            {% if producto and (producto.get('marca_id') == marca.id or producto.get('marca_id') == marca.id|string) %}selected{% endif %}
-                            {% if not producto and marca.id == 1 %}selected{% endif %}>
-                            {{ marca.nombre }}
-                        </option>
-                        {% endfor %}
-                    </select>
+            </div>
+        </div>
+
+        <!-- FORMULARIO ESTRUCTURADO -->
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+            <!-- SECCIÓN 1: IDENTIFICACIÓN Y CLASIFICACIÓN -->
+            <div class="card border-0 shadow-sm bg-white rounded-3 mb-4">
+                <div class="card-header bg-white py-3 px-4 border-bottom">
+                    <h6 class="fw-bold text-slate-800 mb-0">
+                        <i class="bi bi-tag-fill me-2 text-primary"></i>1. Identificación & Clasificación Técnica
+                    </h6>
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label fw-semibold">Tipo</label>
-                    <select name="tipo_id" class="form-select">
-                        {% for tipo in tipos %}
-                        <option value="{{ tipo.id }}"
-                            {% if producto and (producto.get('tipo_id') == tipo.id or producto.get('tipo_id') == tipo.id|string) %}selected{% endif %}
-                            {% if not producto and tipo.id == 1 %}selected{% endif %}>
-                            {{ tipo.nombre }}
-                        </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label fw-semibold">Stock Mínimo</label>
-                    <input type="number" name="stock_minimo" class="form-control" min="0"
-                           value="{{ producto.stock_minimo if producto else 0 }}"
-                           placeholder="0">
-                    <small class="text-muted">Alerta cuando el stock esté por debajo de este valor.</small>
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label fw-semibold">Precio de Compra (C$)</label>
-                    <input type="number" name="precio_compra" class="form-control" min="0" step="0.01"
-                           value="{{ producto.precio_compra if producto else 0 }}"
-                           placeholder="0.00">
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label fw-semibold">Precio de Venta (C$) <span class="text-danger">*</span></label>
-                    <input type="number" name="precio_venta" class="form-control" min="0.01" step="0.01" required
-                           value="{{ producto.precio_venta if producto else '' }}"
-                           placeholder="0.00">
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label fw-semibold">Existencia Inicial</label>
-                    <input type="number" name="existencia" class="form-control" min="0"
-                           {{ 'readonly' if producto else '' }}
-                           value="{{ producto.existencia if producto else 0 }}">
-                    {% if producto %}
-                    <small class="text-muted">Ajusta el stock desde la vista de Inventario.</small>
-                    {% endif %}
-                </div>
-                <div class="col-12">
-                    <label class="form-label fw-semibold">Descripción</label>
-                    <textarea name="descripcion" class="form-control" rows="3"
-                              placeholder="Descripción detallada del producto (opcional)">{{ producto.descripcion if producto else '' }}</textarea>
+                <div class="card-body p-4">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold text-slate-700 small">Código SKU <span class="text-danger">*</span></label>
+                            <input type="text" name="codigo" class="form-control font-monospace" required
+                                   value="{{ producto.codigo if producto else '' }}"
+                                   placeholder="Ej: TEC-LAP-001">
+                            <small class="text-muted">Identificador único o SKU de almacén.</small>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold text-slate-700 small">Nombre del Producto <span class="text-danger">*</span></label>
+                            <input type="text" name="nombre" class="form-control" required
+                                   value="{{ producto.nombre if producto else '' }}"
+                                   placeholder="Ej: Laptop Lenovo ThinkPad E14 Gen 5">
+                            <small class="text-muted">Nombre comercial del dispositivo.</small>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold text-slate-700 small">Modelo / Número de Parte</label>
+                            <input type="text" name="modelo" class="form-control font-monospace"
+                                   value="{{ producto.modelo if producto and producto.get('modelo') else '' }}"
+                                   placeholder="Ej: 21EY000CLM / RTX 4060">
+                            <small class="text-muted">Modelo exacto o part number de fábrica.</small>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold text-slate-700 small">Categoría Tecnológica</label>
+                            <select name="categoria_id" class="form-select">
+                                {% for cat in categorias %}
+                                <option value="{{ cat.id }}"
+                                    {% if producto and (producto.get('categoria_id') == cat.id or producto.get('categoria_id') == cat.id|string) %}selected{% endif %}
+                                    {% if not producto and cat.id == 1 %}selected{% endif %}>
+                                    {{ cat.nombre }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold text-slate-700 small">Marca del Fabricante</label>
+                            <select name="marca_id" class="form-select">
+                                {% for marca in marcas %}
+                                <option value="{{ marca.id }}"
+                                    {% if producto and (producto.get('marca_id') == marca.id or producto.get('marca_id') == marca.id|string) %}selected{% endif %}
+                                    {% if not producto and marca.id == 1 %}selected{% endif %}>
+                                    {{ marca.nombre }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold text-slate-700 small">Tipo de Dispositivo</label>
+                            <select name="tipo_id" class="form-select">
+                                {% for tipo in tipos %}
+                                <option value="{{ tipo.id }}"
+                                    {% if producto and (producto.get('tipo_id') == tipo.id or producto.get('tipo_id') == tipo.id|string) %}selected{% endif %}
+                                    {% if not producto and tipo.id == 1 %}selected{% endif %}>
+                                    {{ tipo.nombre }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <div class="d-flex gap-2 mt-4 pt-3 border-top">
-                <button type="submit" class="btn btn-primary px-4">
-                    <i class="bi bi-save me-1"></i> Guardar Producto
+            <!-- SECCIÓN 2: PRECIOS & EXISTENCIAS -->
+            <div class="card border-0 shadow-sm bg-white rounded-3 mb-4">
+                <div class="card-header bg-white py-3 px-4 border-bottom">
+                    <h6 class="fw-bold text-slate-800 mb-0">
+                        <i class="bi bi-cash-stack me-2 text-primary"></i>2. Costos, Precios & Control de Stock
+                    </h6>
+                </div>
+                <div class="card-body p-4">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold text-slate-700 small">Costo de Compra (C$)</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light text-muted">C$</span>
+                                <input type="number" name="precio_compra" class="form-control" min="0" step="0.01"
+                                       value="{{ producto.precio_compra if producto else 0 }}"
+                                       placeholder="0.00">
+                            </div>
+                            <small class="text-muted">Costo unitario del proveedor.</small>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold text-slate-700 small">Precio de Venta al Público <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light text-success fw-bold">C$</span>
+                                <input type="number" name="precio_venta" class="form-control fw-bold text-success" min="0.01" step="0.01" required
+                                       value="{{ producto.precio_venta if producto else '' }}"
+                                       placeholder="0.00">
+                            </div>
+                            <small class="text-muted">Precio base de facturación.</small>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold text-slate-700 small">Stock Mínimo de Alerta</label>
+                            <input type="number" name="stock_minimo" class="form-control" min="0"
+                                   value="{{ producto.stock_minimo if producto else 0 }}"
+                                   placeholder="0">
+                            <small class="text-muted">Umbral para alertas de reabastecimiento.</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-slate-700 small">Existencia Inicial / Actual</label>
+                            <input type="number" name="existencia" class="form-control" min="0"
+                                   {{ 'readonly' if producto else '' }}
+                                   value="{{ producto.existencia if producto else 0 }}">
+                            {% if producto %}
+                            <small class="text-muted">Las existencias de productos creados se ajustan desde el Kardex / Inventario.</small>
+                            {% else %}
+                            <small class="text-muted">Unidades disponibles para arranque de stock.</small>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-slate-700 small">Garantía Comercial de Fábrica</label>
+                            <div class="input-group">
+                                <input type="number" name="meses_garantia" class="form-control" min="0" max="120"
+                                       value="{{ producto.meses_garantia if producto and producto.get('meses_garantia') is not none else 12 }}"
+                                       placeholder="12">
+                                <span class="input-group-text text-muted">meses</span>
+                            </div>
+                            <small class="text-muted">Período de cobertura técnica posventa al emitir facturas (estándar: 12 meses).</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECCIÓN 3: ESPECIFICACIONES TÉCNICAS -->
+            <div class="card border-0 shadow-sm bg-white rounded-3 mb-4">
+                <div class="card-header bg-white py-3 px-4 border-bottom">
+                    <h6 class="fw-bold text-slate-800 mb-0">
+                        <i class="bi bi-cpu me-2 text-primary"></i>3. Especificaciones Técnicas & Características
+                    </h6>
+                </div>
+                <div class="card-body p-4">
+                    <div>
+                        <label class="form-label fw-semibold text-slate-700 small">Ficha Técnica Detallada (Opcional)</label>
+                        <textarea name="descripcion" class="form-control font-monospace small" rows="3"
+                                  placeholder="Procesador, memoria RAM, almacenamiento, pantalla, resolución, puertos, conectividad Wi-Fi/Bluetooth, sistema operativo...">{{ producto.descripcion if producto else '' }}</textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BOTONES DE ACCIÓN -->
+            <div class="d-flex align-items-center justify-content-between pt-2">
+                <a href="{{ url_for('inventario') }}" class="btn btn-light border px-4 py-2 text-muted">
+                    <i class="bi bi-x-circle me-1"></i> Cancelar
+                </a>
+                <button type="submit" class="btn btn-primary px-4 py-2 fw-semibold shadow-sm">
+                    <i class="bi bi-check-circle-fill me-1"></i> {{ 'Actualizar Ficha de Producto' if producto else 'Guardar Nuevo Producto' }}
                 </button>
-                <a href="{{ url_for('inventario') }}" class="btn btn-light px-4">Cancelar</a>
             </div>
         </form>
+
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

@@ -4,102 +4,205 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Categorías de Productos - PlanillaNica</title>
+    <!-- Google Fonts & Bootstrap 5.3 -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<body>
+<body class="bg-light">
     {% include '_nav.html' %}
 
     <main class="container pb-5">
-        <div class="row align-items-center mb-4">
-            <div class="col-md-6 mb-3 mb-md-0">
-                <a href="{{ url_for('inventario') }}" class="text-decoration-none text-muted mb-2 d-inline-block">
-                    <i class="bi bi-arrow-left"></i> Volver a Inventario
-                </a>
-                <h3 class="fw-bold text-slate-800 mb-1">Categorías de Productos</h3>
-                <p class="text-muted small mb-0">Agrupa tus productos para un mejor control.</p>
-            </div>
-            <div class="col-md-6 text-md-end">
-                <button type="button" class="btn btn-primary btn-action shadow-sm px-3 py-2" data-bs-toggle="modal" data-bs-target="#modalNuevaCategoria">
-                    <i class="bi bi-plus-lg me-1"></i> Nueva Categoría
-                </button>
-            </div>
-        </div>
 
+        <!-- MENSAJES FLASH -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ category }} mb-4">{{ message }}</div>
+                    <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm mb-4" role="alert">
+                        <i class="bi bi-info-circle-fill me-2"></i> {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+                    </div>
                 {% endfor %}
             {% endif %}
         {% endwith %}
 
-        <div class="card bg-white shadow-sm mb-4">
+        <!-- CABECERA -->
+        <div class="row align-items-center mb-4">
+            <div class="col-md-7">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="badge bg-primary-subtle text-primary fw-semibold px-2 py-1">
+                        <i class="bi bi-tags me-1"></i> Clasificación Comercial
+                    </span>
+                    <span class="text-muted small">Catálogos de Inventario & Ventas</span>
+                </div>
+                <h3 class="fw-bold text-slate-900 mb-1">Categorías de Productos</h3>
+                <p class="text-muted small mb-0">Agrupación taxonómica para control de stock, valuación y análisis de ventas por departamento.</p>
+            </div>
+            <div class="col-md-5 text-md-end mt-3 mt-md-0 d-flex flex-wrap gap-2 justify-content-md-end">
+                <a href="{{ url_for('inventario') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 fw-medium shadow-sm">
+                    <i class="bi bi-arrow-left me-1"></i> Volver a Inventario
+                </a>
+
+                <button type="button" class="btn btn-primary btn-sm px-3 py-2 fw-semibold shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevaCategoria">
+                    <i class="bi bi-plus-circle-fill me-1"></i> Nueva Categoría
+                </button>
+            </div>
+        </div>
+
+        <!-- CÁLCULO DE MÉTRICAS -->
+        {% set total_cats = categorias | length %}
+        {% set activas_count = categorias | selectattr('activo', 'equalto', 1) | list | length %}
+        {% set inactivas_count = total_cats - activas_count %}
+
+        <!-- TARJETAS DE ESTADÍSTICAS -->
+        <div class="row g-3 mb-4">
+            <div class="col-sm-4">
+                <div class="card border-0 shadow-sm bg-white rounded-3 h-100 hover-lift">
+                    <div class="card-body p-3 d-flex align-items-center gap-3">
+                        <div class="bg-primary bg-opacity-10 text-primary p-3 rounded-3 fs-4">
+                            <i class="bi bi-tags-fill"></i>
+                        </div>
+                        <div>
+                            <span class="text-muted small d-block">Categorías Registradas</span>
+                            <span class="fs-4 fw-bold text-slate-800">{{ total_cats }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-4">
+                <div class="card border-0 shadow-sm bg-white rounded-3 h-100 hover-lift">
+                    <div class="card-body p-3 d-flex align-items-center gap-3">
+                        <div class="bg-success bg-opacity-10 text-success p-3 rounded-3 fs-4">
+                            <i class="bi bi-check-circle-fill"></i>
+                        </div>
+                        <div>
+                            <span class="text-muted small d-block">Categorías Activas</span>
+                            <span class="fs-4 fw-bold text-success">{{ activas_count }}</span>
+                            <small class="text-muted d-block" style="font-size: 0.72rem;">Habilitadas para productos</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-4">
+                <div class="card border-0 shadow-sm bg-white rounded-3 h-100 hover-lift">
+                    <div class="card-body p-3 d-flex align-items-center gap-3">
+                        <div class="bg-secondary bg-opacity-10 text-secondary p-3 rounded-3 fs-4">
+                            <i class="bi bi-dash-circle-fill"></i>
+                        </div>
+                        <div>
+                            <span class="text-muted small d-block">Inactivas / Archivadas</span>
+                            <span class="fs-4 fw-bold text-secondary">{{ inactivas_count }}</span>
+                            <small class="text-muted d-block" style="font-size: 0.72rem;">Deshabilitadas</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- BARRA DE BÚSQUEDA RÁPIDA -->
+        <div class="card border-0 shadow-sm bg-white rounded-3 mb-4">
+            <div class="card-body p-3">
+                <div class="row g-2 align-items-center">
+                    <div class="col-12 col-md-auto fw-semibold text-slate-700 me-2">
+                        <i class="bi bi-funnel text-muted me-1"></i> Filtrar Categorías:
+                    </div>
+                    <div class="col-12 col-md-5">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                            <input type="text" id="filtroTextoCat" class="form-control border-start-0" placeholder="Buscar categoría por nombre...">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TABLA DE CATEGORÍAS -->
+        <div class="card border-0 shadow-sm bg-white rounded-3 overflow-hidden">
             <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
+                <table class="table table-hover align-middle mb-0" id="tablaCategorias">
+                    <thead class="table-light text-slate-700 small text-uppercase">
                         <tr>
-                            <th width="10%">ID</th>
-                            <th width="60%">Nombre de la Categoría</th>
-                            <th width="15%">Estado</th>
-                            <th width="15%" class="text-end">Acciones</th>
+                            <th class="ps-4" width="12%">ID</th>
+                            <th>Nombre de la Categoría</th>
+                            <th width="20%">Estado</th>
+                            <th width="20%" class="text-end pe-4">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for cat in categorias %}
-                        <tr class="{{ 'text-muted' if not cat.activo }}">
-                            <td>{{ cat.id }}</td>
-                            <td><strong>{{ cat.nombre }}</strong></td>
+                        <tr class="cat-fila {{ 'opacity-75 bg-light' if not cat.activo }}">
+                            <td class="ps-4 text-muted small font-monospace">#{{ cat.id }}</td>
                             <td>
-                                {% if cat.activo %}
-                                    <span class="badge text-bg-success">Activo</span>
-                                {% else %}
-                                    <span class="badge text-bg-secondary">Inactivo</span>
+                                <strong class="text-slate-800">{{ cat.nombre }}</strong>
+                                {% if cat.id == 1 %}
+                                <span class="badge bg-info-subtle text-info border border-info-subtle ms-2 small">Predeterminada</span>
                                 {% endif %}
                             </td>
-                            <td class="text-end">
-                                {% if cat.id != 1 %} <!-- No permitir desactivar la categoría General (ID=1) -->
-                                <form method="POST" action="{{ url_for('estado_categoria', cat_id=cat.id, estado=0 if cat.activo else 1) }}" class="d-inline">
+                            <td>
+                                {% if cat.activo %}
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2 py-1 small">
+                                        <i class="bi bi-circle-fill me-1" style="font-size: 0.45rem;"></i> Activa
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill px-2 py-1 small">
+                                        <i class="bi bi-dash-circle me-1"></i> Inactiva
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end pe-4">
+                                {% if cat.id != 1 %}
+                                <form method="POST" action="{{ url_for('estado_categoria', cat_id=cat.id, estado=0 if cat.activo else 1) }}" class="d-inline" onsubmit="return confirm('¿Confirmas cambiar el estado de esta categoría?')">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                                    <button type="submit" class="btn btn-sm btn-outline-{{ 'danger' if cat.activo else 'success' }}">
-                                        <i class="bi bi-{{ 'trash' if cat.activo else 'check' }}"></i> {{ 'Desactivar' if cat.activo else 'Activar' }}
+                                    <button type="submit" class="btn btn-sm btn-outline-{{ 'danger' if cat.activo else 'success' }} px-2 py-1">
+                                        <i class="bi bi-{{ 'trash' if cat.activo else 'arrow-repeat' }} me-1"></i> {{ 'Desactivar' if cat.activo else 'Activar' }}
                                     </button>
                                 </form>
+                                {% else %}
+                                <span class="badge bg-light text-muted border small">Sistema</span>
                                 {% endif %}
                             </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="4" class="text-center py-4 text-muted">No hay categorías registradas.</td>
+                            <td colspan="4" class="text-center py-5 text-muted">
+                                <i class="bi bi-tags display-4 text-slate-300 d-block mb-3"></i>
+                                <h6 class="fw-semibold text-slate-700 mb-1">No hay categorías registradas</h6>
+                                <p class="small text-muted mb-0">Crea la primera categoría para organizar tu inventario.</p>
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
         </div>
+
     </main>
 
-    <!-- Modal para Nueva Categoría -->
+    <!-- MODAL NUEVA CATEGORÍA -->
     <div class="modal fade" id="modalNuevaCategoria" tabindex="-1" aria-labelledby="modalNuevaCategoriaLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-3 border-0 shadow-lg">
                 <form action="{{ url_for('categorias') }}" method="POST">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <div class="modal-header">
-                        <h5 class="modal-title fw-bold" id="modalNuevaCategoriaLabel">Registrar Categoría</h5>
+                    <div class="modal-header bg-light border-bottom">
+                        <h5 class="modal-title fw-bold text-slate-900" id="modalNuevaCategoriaLabel">
+                            <i class="bi bi-plus-circle-fill text-primary me-2"></i>Registrar Categoría
+                        </h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
-                    <div class="modal-body">
+                    <div class="modal-body p-4">
                         <div class="mb-3">
-                            <label for="nombre" class="form-label fw-semibold">Nombre de la Categoría</label>
-                            <input type="text" class="form-control" id="nombre" name="nombre" required placeholder="Ej: Electrónica, Repuestos...">
+                            <label for="nombre" class="form-label fw-semibold text-slate-700 small">Nombre de la Categoría <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="nombre" name="nombre" required placeholder="Ej: Electrónica, Repuestos, Accesorios...">
+                            <small class="text-muted">Nombre distintivo para clasificar los productos del inventario.</small>
                         </div>
                     </div>
-                    <div class="modal-footer bg-light">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i> Guardar</button>
+                    <div class="modal-footer bg-light border-top">
+                        <button type="button" class="btn btn-light border btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary btn-sm px-3 fw-semibold shadow-sm">
+                            <i class="bi bi-check-lg me-1"></i> Guardar Categoría
+                        </button>
                     </div>
                 </form>
             </div>
@@ -107,5 +210,21 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const filtro = document.getElementById('filtroTextoCat');
+            const filas = document.querySelectorAll('.cat-fila');
+
+            if (filtro) {
+                filtro.addEventListener('input', function() {
+                    const texto = (this.value || '').toLowerCase().trim();
+                    filas.forEach(fila => {
+                        const contenido = fila.textContent.toLowerCase();
+                        fila.style.display = (!texto || contenido.includes(texto)) ? '' : 'none';
+                    });
+                });
+            }
+        });
+    </script>
 </body>
 </html>

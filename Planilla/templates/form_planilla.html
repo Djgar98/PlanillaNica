@@ -4,38 +4,54 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Generar Pago de Planilla - PlanillaNica</title>
-    <!-- Google Fonts & Bootstrap Icons -->
+    <!-- Google Fonts & Bootstrap 5.3 -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
-    <!-- Estilos Personalizados -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<body>
+<body class="bg-light">
 
     {% include '_nav.html' %}
 
-    <div class="container pb-5" style="max-width: 580px;">
-        <div class="card bg-white">
+    <div class="container pb-5" style="max-width: 640px;">
+
+        <!-- BREADCRUMB -->
+        <nav aria-label="breadcrumb" class="mb-3">
+            <ol class="breadcrumb small">
+                <li class="breadcrumb-item"><a href="{{ url_for('index') }}" class="text-decoration-none">Colaboradores</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Procesar Planilla</li>
+            </ol>
+        </nav>
+
+        <!-- MENSAJES FLASH -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }} alert-dismissible fade show mb-4 shadow-sm" role="alert">
+                  <i class="bi bi-info-circle-fill me-2"></i> {{ message }}
+                  <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <div class="card border-0 shadow-sm bg-white rounded-3">
             <div class="card-body p-4 p-md-5">
 
-                {% with messages = get_flashed_messages(with_categories=true) %}
-                  {% for category, message in messages %}
-                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
-                    </div>
-                  {% endfor %}
-                {% endwith %}
-
                 <div class="d-flex align-items-center gap-3 mb-4">
-                    <div class="bg-success bg-opacity-10 text-success p-3 rounded-3 fs-4">
+                    <div class="bg-success bg-opacity-10 text-success p-3 rounded-3 fs-3">
                         <i class="bi bi-cash-coin"></i>
                     </div>
                     <div>
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <span class="badge bg-success-subtle text-success fw-semibold px-2 py-1">
+                                <i class="bi bi-wallet2 me-1"></i> Desembolso de Nómina
+                            </span>
+                            <span class="text-muted small">Cálculo Legal</span>
+                        </div>
                         <h4 class="fw-bold mb-1 text-slate-900">Procesar Cálculo de Planilla</h4>
-                        <p class="text-muted small mb-0">Ingresa las variables del período para liquidar salario y retenciones.</p>
+                        <p class="text-muted small mb-0">Ingresa las variables del período para liquidar salario y retenciones de ley.</p>
                     </div>
                 </div>
 
@@ -44,11 +60,12 @@
                     <div class="row align-items-center g-2">
                         <div class="col-sm-7">
                             <span class="text-muted d-block" style="font-size: 0.75rem;">Colaborador</span>
-                            <span class="fw-bold text-slate-800 fs-6">{{ empleado.nombre }}</span>
+                            <span class="fw-bold text-slate-900 fs-6">{{ empleado.nombre }}</span>
+                            <span class="text-muted small d-block">{{ empleado.cargo }}</span>
                         </div>
                         <div class="col-sm-5 text-sm-end">
                             <span class="text-muted d-block" style="font-size: 0.75rem;">Cédula</span>
-                            <span class="fw-medium text-slate-700 small">{{ empleado.cedula }}</span>
+                            <span class="fw-medium text-slate-800 font-monospace small">{{ empleado.cedula }}</span>
                         </div>
                     </div>
                 </div>
@@ -56,28 +73,28 @@
                 <form method="POST">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <div class="mb-3">
-                        <label class="form-label fw-medium text-slate-700 small">Salario Base Pactado (C$)</label>
+                        <label class="form-label fw-semibold text-slate-700 small">Salario Base Pactado (C$) <span class="text-danger">*</span></label>
                         <div class="input-group">
-                            <span class="input-group-text bg-light border-end-0 text-muted">C$</span>
-                            <input type="number" step="0.01" name="salario_base" class="form-control border-start-0 ps-1 fw-semibold" 
+                            <span class="input-group-text bg-light text-muted">C$</span>
+                            <input type="number" step="0.01" name="salario_base" class="form-control fw-bold text-slate-800" 
                                    value="{{ valores.salario_base if valores else empleado.salario_base }}" min="0.01" required>
                         </div>
-                        <span class="form-text text-muted" style="font-size: 0.75rem;">Monto aplicado a este período; se guardará en el historial sin modificar el expediente.</span>
+                        <small class="text-muted">Monto contractual para este período; se guardará en el historial sin alterar el expediente.</small>
                     </div>
 
                     <div class="mb-4">
-                        <label class="form-label fw-medium text-slate-700 small">Horas Extraordinarias Trabajas</label>
+                        <label class="form-label fw-semibold text-slate-700 small">Horas Extraordinarias Laboradas</label>
                         <div class="input-group">
-                            <span class="input-group-text bg-light border-end-0 text-muted"><i class="bi bi-clock-history"></i></span>
-                            <input type="number" step="0.5" name="horas_extras" class="form-control border-start-0 ps-1" value="{{ valores.horas_extras if valores else 0 }}" min="0">
+                            <span class="input-group-text bg-light text-muted"><i class="bi bi-clock-history"></i></span>
+                            <input type="number" step="0.5" name="horas_extras" class="form-control" value="{{ valores.horas_extras if valores else 0 }}" min="0">
                             <span class="input-group-text bg-light text-muted small">Horas</span>
                         </div>
-                        <span class="form-text text-muted" style="font-size: 0.75rem;">Se liquidan con recargo del 100% sobre hora ordinaria (Base / 240 * 2).</span>
+                        <small class="text-muted">Se liquidan con recargo legal del 100% sobre la hora ordinaria (Base / 240 * 2).</small>
                     </div>
 
                     <div class="d-flex justify-content-between align-items-center pt-3 border-top">
-                        <a href="/" class="btn btn-light border btn-sm px-3 text-muted fw-medium">Cancelar</a>
-                        <button type="submit" class="btn btn-success btn-sm px-4 fw-semibold">
+                        <a href="{{ url_for('index') }}" class="btn btn-light border btn-sm px-3 text-muted">Cancelar</a>
+                        <button type="submit" class="btn btn-success btn-sm px-4 py-2 fw-semibold shadow-sm">
                             <i class="bi bi-calculator me-1"></i> Calcular y Procesar Pago
                         </button>
                     </div>

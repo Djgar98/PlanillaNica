@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Módulo de Liquidaciones - PlanillaNica</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .kpi-card {
+            border-radius: 12px;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            text-decoration: none !important;
+            display: block;
+        }
+        .kpi-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08) !important;
+        }
+        .kpi-card.active-filter {
+            border-width: 2px !important;
+            box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15);
+        }
+    </style>
+</head>
+<body class="bg-light">
+    {% include '_nav.html' %}
+
+    <main class="container-fluid px-lg-5 py-4">
+        <!-- ENCABEZADO -->
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-1 small text-muted">
+                        <li class="breadcrumb-item"><a href="{{ url_for('index') }}" class="text-decoration-none">RRHH</a></li>
+                        <li class="breadcrumb-item active" aria-current="page">Liquidaciones</li>
+                    </ol>
+                </nav>
+                <h2 class="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
+                    <i class="bi bi-file-earmark-person-fill text-danger"></i> Liquidaciones y Finiquitos Laborales
+                </h2>
+                <p class="text-muted small mb-0">Cálculo legal por Despido o Renuncia (Sector Privado Ley 185 / Sector Público Ley 476).</p>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="{{ url_for('vacaciones') }}" class="btn btn-outline-warning btn-sm text-dark">
+                    <i class="bi bi-sun-fill me-1"></i> Control de Vacaciones
+                </a>
+                {% if puede('gestionar_empleados') or puede('procesar_planilla') %}
+                <a href="{{ url_for('nueva_liquidacion') }}" class="btn btn-danger btn-sm shadow-sm fw-semibold">
+                    <i class="bi bi-calculator me-1"></i> + Nueva Liquidación
+                </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- MENSAJES FLASH -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm mb-4" role="alert">
+                        <i class="bi bi-info-circle-fill me-2"></i>{{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- TARJETAS KPI -->
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-md-3">
+                <a href="{{ url_for('liquidaciones') }}" class="card kpi-card bg-white shadow-sm border-0 p-3 h-100 {{ 'active-filter border-primary' if not motivo_filtro else '' }}">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <span class="text-muted small fw-semibold">Total Procesadas</span>
+                        <div class="rounded-circle bg-light p-2 text-primary"><i class="bi bi-folder2-open"></i></div>
+                    </div>
+                    <div class="h3 fw-bold text-dark mb-0">{{ resumen.total }}</div>
+                    <div class="small text-muted">Historial de liquidaciones</div>
+                </a>
+            </div>
+
+            <div class="col-6 col-md-3">
+                <a href="{{ url_for('liquidaciones', motivo='despido') }}" class="card kpi-card bg-white shadow-sm border-0 p-3 h-100 {{ 'active-filter border-danger' if motivo_filtro == 'despido' else '' }}">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <span class="text-danger small fw-semibold">Por Despido</span>
+                        <div class="rounded-circle bg-danger-subtle p-2 text-danger"><i class="bi bi-person-x-fill"></i></div>
+                    </div>
+                    <div class="h3 fw-bold text-danger mb-0">{{ resumen.despidos }}</div>
+                    <div class="small text-muted">Con Indemnización Art. 45</div>
+                </a>
+            </div>
+
+            <div class="col-6 col-md-3">
+                <a href="{{ url_for('liquidaciones', motivo='renuncia') }}" class="card kpi-card bg-white shadow-sm border-0 p-3 h-100 {{ 'active-filter border-info' if motivo_filtro == 'renuncia' else '' }}">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <span class="text-primary small fw-semibold">Por Renuncia</span>
+                        <div class="rounded-circle bg-primary-subtle p-2 text-primary"><i class="bi bi-box-arrow-right"></i></div>
+                    </div>
+                    <div class="h3 fw-bold text-primary mb-0">{{ resumen.renuncias }}</div>
+                    <div class="small text-muted">Derechos adquiridos</div>
+                </a>
+            </div>
+
+            <div class="col-6 col-md-3">
+                <div class="card kpi-card bg-white shadow-sm border-0 p-3 h-100">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <span class="text-success small fw-semibold">Total Liquidado</span>
+                        <div class="rounded-circle bg-success-subtle p-2 text-success"><i class="bi bi-cash-stack"></i></div>
+                    </div>
+                    <div class="h4 fw-bold text-success mb-0">C$ {{ resumen.total_liquidado | moneda }}</div>
+                    <div class="small text-muted">Monto neto acumulado</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FILTROS Y BÚSQUEDA -->
+        <div class="card bg-white shadow-sm border-0 mb-4">
+            <div class="card-body p-3">
+                <form method="GET" action="{{ url_for('liquidaciones') }}" class="row g-2 align-items-center">
+                    <div class="col-md-5 col-lg-4">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                            <input type="text" name="busqueda" class="form-control border-start-0" placeholder="Código, nombre o cédula de colaborador..." value="{{ busqueda }}">
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3 col-lg-2">
+                        <select name="motivo" class="form-select form-select-sm">
+                            <option value="" {{ 'selected' if not motivo_filtro }}>-- Motivo (Todos) --</option>
+                            <option value="despido" {{ 'selected' if motivo_filtro == 'despido' }}>Despido</option>
+                            <option value="renuncia" {{ 'selected' if motivo_filtro == 'renuncia' }}>Renuncia</option>
+                        </select>
+                    </div>
+                    <div class="col-6 col-md-2 col-lg-2">
+                        <select name="estado" class="form-select form-select-sm">
+                            <option value="" {{ 'selected' if not estado_filtro }}>-- Estado (Todos) --</option>
+                            <option value="registrada" {{ 'selected' if estado_filtro == 'registrada' }}>Registrada</option>
+                            <option value="pagada" {{ 'selected' if estado_filtro == 'pagada' }}>Pagada</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-2 col-lg-2 d-flex gap-2">
+                        <button type="submit" class="btn btn-primary btn-sm px-3 flex-grow-1">
+                            <i class="bi bi-filter me-1"></i> Filtrar
+                        </button>
+                        {% if busqueda or motivo_filtro or estado_filtro %}
+                        <a href="{{ url_for('liquidaciones') }}" class="btn btn-light btn-sm px-2 text-muted" title="Limpiar filtros">
+                            <i class="bi bi-x-circle"></i>
+                        </a>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- TABLA DE LIQUIDACIONES -->
+        <div class="card bg-white shadow-sm border-0">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold mb-0">
+                    <i class="bi bi-receipt-cutoff text-primary me-2"></i>Historial de Liquidaciones Registradas
+                    <span class="badge bg-light text-dark border ms-2 fw-normal">{{ liquidaciones|length }} registros</span>
+                </h5>
+                {% if puede('gestionar_empleados') or puede('procesar_planilla') %}
+                <a href="{{ url_for('nueva_liquidacion') }}" class="btn btn-danger btn-sm">
+                    <i class="bi bi-plus-circle me-1"></i> Nueva Liquidación
+                </a>
+                {% endif %}
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light text-muted small">
+                        <tr>
+                            <th class="ps-4">CÓDIGO</th>
+                            <th>COLABORADOR</th>
+                            <th class="text-center">MOTIVO</th>
+                            <th>RÉGIMEN</th>
+                            <th>FECHA SALIDA & ANTIGÜEDAD</th>
+                            <th class="text-end">INDEMNIZACIÓN</th>
+                            <th class="text-end">TOTAL NETO</th>
+                            <th class="text-center">ESTADO</th>
+                            <th class="text-end pe-4">ACCIONES</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for l in liquidaciones %}
+                        <tr>
+                            <td class="ps-4">
+                                <a href="{{ url_for('finiquito_liquidacion', liquidacion_id=l.id) }}" class="fw-bold font-mono text-decoration-none">
+                                    {{ l.codigo }}
+                                </a>
+                            </td>
+                            <td>
+                                <div class="fw-bold text-dark">{{ l.empleado_nombre }}</div>
+                                <div class="small text-muted font-mono">{{ l.empleado_cedula }}</div>
+                            </td>
+                            <td class="text-center">
+                                {% if l.motivo == 'despido' %}
+                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1 text-uppercase">
+                                    <i class="bi bi-person-x me-1"></i> Despido
+                                </span>
+                                {% else %}
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 text-uppercase">
+                                    <i class="bi bi-box-arrow-right me-1"></i> Renuncia
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark border">
+                                    {{ 'Privada (Ley 185)' if l.regimen == 'privada' else 'Pública (Ley 476)' }}
+                                </span>
+                            </td>
+                            <td>
+                                <div>{{ l.fecha_salida }}</div>
+                                <div class="small text-muted">{{ l.anios_servicio }}a, {{ l.meses_servicio }}m, {{ l.dias_servicio }}d ({{ l.total_dias_trabajados }} días)</div>
+                            </td>
+                            <td class="text-end">
+                                {% if l.monto_indemnizacion > 0 %}
+                                <div class="fw-semibold text-danger">C$ {{ l.monto_indemnizacion | moneda }}</div>
+                                <div class="small text-muted">{{ l.meses_indemnizacion }} meses</div>
+                                {% else %}
+                                <span class="text-muted small">C$ 0.00 (No aplica)</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end fw-bold text-success fs-6">
+                                C$ {{ l.total_neto | moneda }}
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 text-uppercase">
+                                    {{ l.estado }}
+                                </span>
+                            </td>
+                            <td class="text-end pe-4">
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{{ url_for('finiquito_liquidacion', liquidacion_id=l.id) }}" class="btn btn-outline-secondary" title="Ver e Imprimir Finiquito">
+                                        <i class="bi bi-printer me-1"></i> Finiquito
+                                    </a>
+                                    <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalLiqDetalle{{ l.id }}" title="Ver desglose completo de conceptos">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </div>
+
+                                <!-- MODAL DESGLOSE DE CONCEPTOS -->
+                                <div class="modal fade text-start" id="modalLiqDetalle{{ l.id }}" tabindex="-1" aria-hidden="true">
+                                    <div class="modal-dialog modal-lg">
+                                        <div class="modal-content border-0 shadow">
+                                            <div class="modal-header bg-light">
+                                                <h5 class="modal-title fw-bold">
+                                                    <i class="bi bi-file-earmark-text text-primary me-2"></i>Liquidación {{ l.codigo }} — {{ l.empleado_nombre }}
+                                                </h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <div class="modal-body p-4">
+                                                <div class="row g-3 mb-4">
+                                                    <div class="col-sm-6">
+                                                        <div class="p-3 bg-light rounded">
+                                                            <div class="text-muted small">Colaborador</div>
+                                                            <div class="fw-bold">{{ l.empleado_nombre }}</div>
+                                                            <div class="small text-muted">{{ l.empleado_cedula }} | {{ l.cargo_nombre }}</div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-sm-6">
+                                                        <div class="p-3 bg-light rounded">
+                                                            <div class="text-muted small">Causa & Fechas</div>
+                                                            <div class="fw-bold text-uppercase text-danger">{{ l.motivo }} ({{ l.regimen }})</div>
+                                                            <div class="small text-muted">Ingreso: {{ l.fecha_ingreso }} &rarr; Salida: {{ l.fecha_salida }}</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <h6 class="fw-bold border-bottom pb-2 mb-3">Desglose de Prestaciones Laborales</h6>
+                                                <table class="table table-sm table-bordered">
+                                                    <thead class="table-light">
+                                                        <tr>
+                                                            <th>Concepto</th>
+                                                            <th class="text-center">Días / Meses</th>
+                                                            <th class="text-end">Monto Bruto</th>
+                                                            <th class="text-end">Deducciones</th>
+                                                            <th class="text-end">Neto</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr>
+                                                            <td>Salario Pendiente Último Período</td>
+                                                            <td class="text-center">{{ l.dias_salario_pendiente }} días</td>
+                                                            <td class="text-end">C$ {{ l.monto_salario_pendiente | moneda }}</td>
+                                                            <td class="text-end text-danger">- C$ {{ l.inss_salario_pendiente | moneda }} (INSS 7%)</td>
+                                                            <td class="text-end fw-semibold">C$ {{ (l.monto_salario_pendiente - l.inss_salario_pendiente) | moneda }}</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td>Vacaciones Proporcionales (Art. 76)</td>
+                                                            <td class="text-center">{{ l.dias_vacaciones_pendientes }} días</td>
+                                                            <td class="text-end">C$ {{ l.monto_vacaciones | moneda }}</td>
+                                                            <td class="text-end text-muted">Exento INSS</td>
+                                                            <td class="text-end fw-semibold">C$ {{ l.monto_vacaciones | moneda }}</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td>Décimo Tercer Mes / Aguinaldo (Art. 93)</td>
+                                                            <td class="text-center">{{ l.dias_aguinaldo_proporcional }} días</td>
+                                                            <td class="text-end">C$ {{ l.monto_aguinaldo | moneda }}</td>
+                                                            <td class="text-end text-muted">Exento INSS / IR</td>
+                                                            <td class="text-end fw-semibold">C$ {{ l.monto_aguinaldo | moneda }}</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td>Indemnización por Antigüedad (Art. 45)</td>
+                                                            <td class="text-center">{{ l.meses_indemnizacion }} meses</td>
+                                                            <td class="text-end">C$ {{ l.monto_indemnizacion | moneda }}</td>
+                                                            <td class="text-end text-muted">-</td>
+                                                            <td class="text-end fw-semibold">C$ {{ l.monto_indemnizacion | moneda }}</td>
+                                                        </tr>
+                                                        {% if l.otras_deducciones > 0 %}
+                                                        <tr>
+                                                            <td>Otras Deducciones ({{ l.motivo_deducciones or 'Anticipos/Préstamos' }})</td>
+                                                            <td class="text-center">-</td>
+                                                            <td class="text-end">-</td>
+                                                            <td class="text-end text-danger">- C$ {{ l.otras_deducciones | moneda }}</td>
+                                                            <td class="text-end text-danger">- C$ {{ l.otras_deducciones | moneda }}</td>
+                                                        </tr>
+                                                        {% endif %}
+                                                    </tbody>
+                                                    <tfoot class="table-light fs-6">
+                                                        <tr class="fw-bold">
+                                                            <td colspan="4" class="text-end">TOTAL NETO LIQUIDACIÓN:</td>
+                                                            <td class="text-end text-success">C$ {{ l.total_neto | moneda }}</td>
+                                                        </tr>
+                                                    </tfoot>
+                                                </table>
+
+                                                {% if l.observaciones %}
+                                                <div class="p-2 bg-light rounded small mt-2">
+                                                    <strong>Observaciones:</strong> {{ l.observaciones }}
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                            <div class="modal-footer bg-light p-3">
+                                                <a href="{{ url_for('finiquito_liquidacion', liquidacion_id=l.id) }}" class="btn btn-primary btn-sm">
+                                                    <i class="bi bi-printer me-1"></i> Imprimir Finiquito Oficial
+                                                </a>
+                                                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="9" class="text-center py-5 text-muted">
+                                <i class="bi bi-folder-x fs-1 d-block mb-2 text-secondary"></i>
+                                <h5>No hay liquidaciones registradas con los filtros aplicados</h5>
+                                <p class="small mb-0">Usa el botón "+ Nueva Liquidación" para realizar un cálculo finiquito.</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Garantías de Productos - PlanillaNica</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .kpi-card {
+            border-radius: 12px;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            cursor: pointer;
+            text-decoration: none !important;
+            display: block;
+        }
+        .kpi-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08) !important;
+        }
+        .kpi-card.active-filter {
+            border-width: 2px !important;
+            box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15);
+        }
+        .badge-por-vencer {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+        .table-hover tbody tr:hover {
+            background-color: rgba(13, 110, 253, 0.02);
+        }
+    </style>
+</head>
+<body class="bg-light">
+    {% include '_nav.html' %}
+
+    <main class="container-fluid px-lg-5 py-4">
+        <!-- ENCABEZADO -->
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-1 small text-muted">
+                        <li class="breadcrumb-item"><a href="{{ url_for('ventas') }}" class="text-decoration-none">Ventas</a></li>
+                        <li class="breadcrumb-item active" aria-current="page">Garantías</li>
+                    </ol>
+                </nav>
+                <h2 class="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
+                    <i class="bi bi-shield-check text-primary"></i> Control y Gestión de Garantías
+                </h2>
+                <p class="text-muted small mb-0">Supervisión de coberturas, garantías activas, por vencer, vencidas y ejecución de reclamos técnicos.</p>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="{{ url_for('ventas') }}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-cart me-1"></i> Ir a Ventas
+                </a>
+                {% if puede('crear_ventas') %}
+                <a href="{{ url_for('nueva_venta') }}" class="btn btn-primary btn-sm shadow-sm">
+                    <i class="bi bi-cart-plus-fill me-1"></i> Nueva Venta
+                </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- MENSAJES FLASH -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm mb-4" role="alert">
+                        <i class="bi bi-info-circle-fill me-2"></i>{{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- TARJETAS KPI DE RESUMEN (ACCESOS RÁPIDOS) -->
+        <div class="row g-3 mb-4">
+            <!-- Total -->
+            <div class="col-6 col-md-4 col-xl-2">
+                <a href="{{ url_for('garantias') }}" class="card kpi-card bg-white shadow-sm border-0 p-3 h-100 {{ 'active-filter border-primary' if not estado_filtro or estado_filtro == 'todas' else '' }}">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <span class="text-muted small fw-semibold">Total</span>
+                        <div class="rounded-circle bg-light p-2 text-primary"><i class="bi bi-shield-shaded"></i></div>
+                    </div>
+                    <div class="h3 fw-bold text-dark mb-0">{{ resumen.total }}</div>
+                    <div class="small text-muted">Historial completo</div>
+                </a>
+            </div>
+
+            <!-- Vigentes / Activas -->
+            <div class="col-6 col-md-4 col-xl-2">
+                <a href="{{ url_for('garantias', estado='activas') }}" class="card kpi-card bg-white shadow-sm border-0 p-3 h-100 {{ 'active-filter border-success' if estado_filtro in ('activas', 'activa') else '' }}">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <span class="text-success small fw-semibold">Vigentes</span>
+                        <div class="rounded-circle bg-success-subtle p-2 text-success"><i class="bi bi-shield-check"></i></div>
+                    </div>
+                    <div class="h3 fw-bold text-success mb-0">{{ resumen.activas }}</div>
+                    <div class="small text-muted">En cobertura activa</div>
+                </a>
+            </div>
+
+            <!-- Por Vencer -->
+            <div class="col-6 col-md-4 col-xl-2">
+                <a href="{{ url_for('garantias', estado='por_vencer') }}" class="card kpi-card bg-white shadow-sm border-0 p-3 h-100 {{ 'active-filter border-warning' if estado_filtro == 'por_vencer' else '' }}">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <span class="text-warning-emphasis small fw-semibold">Por Vencer</span>
+                        <div class="rounded-circle bg-warning-subtle p-2 text-warning-emphasis"><i class="bi bi-clock-history"></i></div>
+                    </div>
+                    <div class="h3 fw-bold text-warning-emphasis mb-0">{{ resumen.por_vencer }}</div>
+                    <div class="small text-muted">&le; 30 días restantes</div>
+                </a>
+            </div>
+
+            <!-- Vencidas -->
+            <div class="col-6 col-md-4 col-xl-2">
+                <a href="{{ url_for('garantias', estado='vencidas') }}" class="card kpi-card bg-white shadow-sm border-0 p-3 h-100 {{ 'active-filter border-danger' if estado_filtro in ('vencidas', 'vencida') else '' }}">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <span class="text-danger small fw-semibold">Vencidas</span>
+                        <div class="rounded-circle bg-danger-subtle p-2 text-danger"><i class="bi bi-shield-x"></i></div>
+                    </div>
+                    <div class="h3 fw-bold text-danger mb-0">{{ resumen.vencidas }}</div>
+                    <div class="small text-muted">Cobertura expirada</div>
+                </a>
+            </div>
+
+            <!-- Ejecutadas / Atendidas -->
+            <div class="col-6 col-md-4 col-xl-2">
+                <a href="{{ url_for('garantias', estado='ejecutadas') }}" class="card kpi-card bg-white shadow-sm border-0 p-3 h-100 {{ 'active-filter border-info' if estado_filtro in ('ejecutadas', 'ejecutada') else '' }}">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <span class="text-primary small fw-semibold">Ejecutadas</span>
+                        <div class="rounded-circle bg-primary-subtle p-2 text-primary"><i class="bi bi-wrench-adjustable"></i></div>
+                    </div>
+                    <div class="h3 fw-bold text-primary mb-0">{{ resumen.ejecutadas }}</div>
+                    <div class="small text-muted">Reclamos resueltos</div>
+                </a>
+            </div>
+
+            <!-- Anuladas -->
+            <div class="col-6 col-md-4 col-xl-2">
+                <a href="{{ url_for('garantias', estado='anuladas') }}" class="card kpi-card bg-white shadow-sm border-0 p-3 h-100 {{ 'active-filter border-secondary' if estado_filtro in ('anuladas', 'anulada') else '' }}">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <span class="text-secondary small fw-semibold">Anuladas</span>
+                        <div class="rounded-circle bg-secondary-subtle p-2 text-secondary"><i class="bi bi-slash-circle"></i></div>
+                    </div>
+                    <div class="h3 fw-bold text-secondary mb-0">{{ resumen.anuladas }}</div>
+                    <div class="small text-muted">Por devolución de venta</div>
+                </a>
+            </div>
+        </div>
+
+        <!-- FILTROS Y BÚSQUEDA -->
+        <div class="card bg-white shadow-sm border-0 mb-4">
+            <div class="card-body p-3">
+                <form method="GET" action="{{ url_for('garantias') }}" class="row g-2 align-items-center">
+                    <div class="col-md-4 col-lg-3">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                            <input type="text" name="busqueda" class="form-control border-start-0" placeholder="Código, cliente, producto o venta..." value="{{ busqueda }}">
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3 col-lg-2">
+                        <select name="estado" class="form-select form-select-sm">
+                            <option value="" {{ 'selected' if not estado_filtro }}>-- Todos los estados --</option>
+                            <option value="activas" {{ 'selected' if estado_filtro in ('activas', 'activa') }}>Vigentes / Activas</option>
+                            <option value="por_vencer" {{ 'selected' if estado_filtro == 'por_vencer' }}>Por Vencer (&le; 30 días)</option>
+                            <option value="vencidas" {{ 'selected' if estado_filtro in ('vencidas', 'vencida') }}>Vencidas</option>
+                            <option value="ejecutadas" {{ 'selected' if estado_filtro in ('ejecutadas', 'ejecutada') }}>Ejecutadas</option>
+                            <option value="anuladas" {{ 'selected' if estado_filtro in ('anuladas', 'anulada') }}>Anuladas</option>
+                        </select>
+                    </div>
+                    <div class="col-6 col-md-2 col-lg-2">
+                        <input type="date" name="fecha_desde" class="form-control form-control-sm" title="Fecha inicio desde" value="{{ fecha_desde }}">
+                    </div>
+                    <div class="col-6 col-md-2 col-lg-2">
+                        <input type="date" name="fecha_hasta" class="form-control form-control-sm" title="Fecha inicio hasta" value="{{ fecha_hasta }}">
+                    </div>
+                    <div class="col-6 col-md-1 col-lg-3 d-flex gap-2">
+                        <button type="submit" class="btn btn-primary btn-sm px-3 flex-grow-1 flex-lg-grow-0">
+                            <i class="bi bi-filter me-1"></i> Filtrar
+                        </button>
+                        {% if busqueda or estado_filtro or fecha_desde or fecha_hasta %}
+                        <a href="{{ url_for('garantias') }}" class="btn btn-light btn-sm px-2 text-muted" title="Limpiar filtros">
+                            <i class="bi bi-x-circle"></i>
+                        </a>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- LISTADO DE GARANTÍAS -->
+        <div class="card bg-white shadow-sm border-0">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold mb-0">
+                    <i class="bi bi-list-check text-primary me-2"></i>Registros de Garantías
+                    <span class="badge bg-light text-dark border ms-2 fw-normal">{{ garantias|length }} encontrados</span>
+                </h5>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light text-muted small">
+                        <tr>
+                            <th class="ps-4">CÓDIGO</th>
+                            <th>VENTA & FECHA</th>
+                            <th>CLIENTE</th>
+                            <th>PRODUCTO</th>
+                            <th>VIGENCIA</th>
+                            <th>PLAZO / RESTANTE</th>
+                            <th class="text-center">ESTADO</th>
+                            <th class="text-end pe-4">ACCIONES</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for g in garantias %}
+                        <tr>
+                            <!-- Código -->
+                            <td class="ps-4">
+                                <a href="{{ url_for('certificado_garantia', garantia_id=g.id) }}" class="fw-bold font-mono text-decoration-none">
+                                    {{ g.codigo }}
+                                </a>
+                            </td>
+
+                            <!-- Venta & Fecha -->
+                            <td>
+                                <a href="{{ url_for('detalle_venta', venta_id=g.venta_id) }}" class="text-decoration-none fw-semibold">
+                                    Venta #{{ g.venta_id }}
+                                </a>
+                                <div class="small text-muted">{{ g.fecha_inicio[:10] }}</div>
+                            </td>
+
+                            <!-- Cliente -->
+                            <td>
+                                <div class="fw-medium text-dark">{{ g.cliente or 'Consumidor Final' }}</div>
+                                <div class="small text-muted">Vendido por: {{ g.vendedor_usuario }}</div>
+                            </td>
+
+                            <!-- Producto -->
+                            <td>
+                                <div class="fw-bold text-dark">{{ g.producto_nombre }}</div>
+                                <div class="small text-muted">
+                                    <span class="font-mono">SKU: {{ g.producto_codigo }}</span>
+                                    {% if g.producto_modelo %}
+                                    <span class="text-secondary ms-1">| {{ g.producto_modelo }}</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+
+                            <!-- Cobertura -->
+                            <td>
+                                <div class="small fw-semibold">{{ g.meses_cobertura }} meses</div>
+                                <div class="small text-muted">{{ g.fecha_inicio[:10] }} &rarr; {{ g.fecha_vencimiento[:10] }}</div>
+                            </td>
+
+                            <!-- Plazo / Restante -->
+                            <td>
+                                {% if g.estado == 'activa' %}
+                                    {% if g.dias_restantes is not none %}
+                                        {% if g.dias_restantes == 0 %}
+                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">
+                                                <i class="bi bi-clock-fill me-1"></i> Vence hoy
+                                            </span>
+                                        {% elif g.dias_restantes <= 30 %}
+                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">
+                                                <i class="bi bi-clock-history me-1"></i> Quedan {{ g.dias_restantes }} días
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                                <i class="bi bi-shield-check me-1"></i> {{ g.dias_restantes }} días restantes
+                                            </span>
+                                        {% endif %}
+                                    {% endif %}
+                                {% elif g.estado == 'vencida' %}
+                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle">
+                                        <i class="bi bi-shield-x me-1"></i>
+                                        {% if g.dias_restantes is not none %}
+                                            Vencida hace {{ -g.dias_restantes }} días
+                                        {% else %}
+                                            Vencida
+                                        {% endif %}
+                                    </span>
+                                {% elif g.estado == 'ejecutada' %}
+                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                                        <i class="bi bi-check-circle-fill me-1"></i> Resuelta el {{ g.fecha_ejecucion[:10] if g.fecha_ejecucion else '' }}
+                                    </span>
+                                {% elif g.estado == 'anulada' %}
+                                    <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">
+                                        <i class="bi bi-slash-circle me-1"></i> Devolución
+                                    </span>
+                                {% endif %}
+                            </td>
+
+                            <!-- Estado -->
+                            <td class="text-center">
+                                {% if g.estado == 'activa' %}
+                                    {% if g.es_por_vencer %}
+                                        <span class="badge bg-warning text-dark px-2 py-1"><i class="bi bi-exclamation-triangle-fill me-1"></i> Por Vencer</span>
+                                    {% else %}
+                                        <span class="badge bg-success px-2 py-1"><i class="bi bi-check-lg me-1"></i> Vigente</span>
+                                    {% endif %}
+                                {% elif g.estado == 'vencida' %}
+                                    <span class="badge bg-danger px-2 py-1"><i class="bi bi-x-circle me-1"></i> Vencida</span>
+                                {% elif g.estado == 'ejecutada' %}
+                                    <span class="badge bg-primary px-2 py-1"><i class="bi bi-wrench me-1"></i> Ejecutada</span>
+                                {% elif g.estado == 'anulada' %}
+                                    <span class="badge bg-secondary px-2 py-1"><i class="bi bi-ban me-1"></i> Anulada</span>
+                                {% endif %}
+                            </td>
+
+                            <!-- Acciones -->
+                            <td class="text-end pe-4">
+                                <div class="d-inline-flex gap-1">
+                                    <!-- Botón Ejecutar Garantía -->
+                                    {% if g.estado in ('activa', 'vencida') and (puede('crear_ventas') or puede('resolver_solicitudes') or puede('consultar_todas_ventas')) %}
+                                    <button type="button" class="btn btn-primary btn-sm d-flex align-items-center gap-1 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalEjecutar{{ g.id }}" title="Ejecutar Garantía de este producto">
+                                        <i class="bi bi-wrench-adjustable"></i> <span>Ejecutar Garantía</span>
+                                    </button>
+                                    {% endif %}
+
+                                    <!-- Botón Ver Reclamo si ya está ejecutada -->
+                                    {% if g.estado == 'ejecutada' %}
+                                    <button type="button" class="btn btn-outline-info btn-sm d-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#modalDetalle{{ g.id }}" title="Ver detalles del reclamo y solución">
+                                        <i class="bi bi-file-earmark-medical"></i> <span>Ver Reclamo</span>
+                                    </button>
+                                    {% endif %}
+
+                                    <!-- Botón Certificado Imprimible -->
+                                    <a href="{{ url_for('certificado_garantia', garantia_id=g.id) }}" class="btn btn-outline-secondary btn-sm" title="Ver / Imprimir Certificado de Garantía">
+                                        <i class="bi bi-printer"></i>
+                                    </a>
+                                </div>
+
+                                <!-- MODAL DE EJECUTAR GARANTÍA -->
+                                {% if g.estado in ('activa', 'vencida') %}
+                                <div class="modal fade text-start" id="modalEjecutar{{ g.id }}" tabindex="-1" aria-hidden="true">
+                                    <div class="modal-dialog modal-lg">
+                                        <div class="modal-content border-0 shadow">
+                                            <form action="{{ url_for('ejecutar_garantia_post', garantia_id=g.id) }}" method="POST">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                                
+                                                <div class="modal-header bg-primary text-white">
+                                                    <h5 class="modal-title fw-bold">
+                                                        <i class="bi bi-shield-exclamation me-2"></i>Ejecutar Garantía — {{ g.codigo }}
+                                                    </h5>
+                                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                                </div>
+
+                                                <div class="modal-body p-4">
+                                                    <!-- Ficha rápida informativa -->
+                                                    <div class="card bg-light border-0 mb-4 p-3">
+                                                        <div class="row g-2 small">
+                                                            <div class="col-sm-6"><strong>Producto:</strong> {{ g.producto_nombre }} ({{ g.producto_codigo }})</div>
+                                                            <div class="col-sm-6"><strong>Cliente:</strong> {{ g.cliente or 'Consumidor Final' }}</div>
+                                                            <div class="col-sm-6"><strong>Venta Asociada:</strong> #{{ g.venta_id }} (Fecha: {{ g.venta_fecha }})</div>
+                                                            <div class="col-sm-6"><strong>Vencimiento:</strong> {{ g.fecha_vencimiento[:10] }} ({{ g.meses_cobertura }} meses)</div>
+                                                        </div>
+                                                        {% if g.estado == 'vencida' %}
+                                                        <div class="alert alert-warning py-1 px-2 mt-2 mb-0 small border-warning">
+                                                            <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                                                            <strong>Atención:</strong> Esta garantía expiró. Justifique adecuadamente en el diagnóstico si se autoriza por excepción de servicio.
+                                                        </div>
+                                                        {% endif %}
+                                                    </div>
+
+                                                    <!-- Tipo de Solución -->
+                                                    <div class="mb-3">
+                                                        <label class="form-label fw-bold text-dark">Tipo de Solución / Resolución <span class="text-danger">*</span></label>
+                                                        <div class="row g-2">
+                                                            <div class="col-sm-6">
+                                                                <div class="form-check p-3 border rounded bg-white h-100">
+                                                                    <input class="form-check-input" type="radio" name="tipo_resolucion" id="solReemplazo{{ g.id }}" value="reemplazo">
+                                                                    <label class="form-check-label fw-semibold" for="solReemplazo{{ g.id }}">
+                                                                        🔄 Reemplazo de Producto
+                                                                        <div class="small text-muted fw-normal">Cambio físico por una unidad nueva.</div>
+                                                                    </label>
+                                                                </div>
+                                                            </div>
+                                                            <div class="col-sm-6">
+                                                                <div class="form-check p-3 border rounded bg-white h-100">
+                                                                    <input class="form-check-input" type="radio" name="tipo_resolucion" id="solReparacion{{ g.id }}" value="reparacion" checked>
+                                                                    <label class="form-check-label fw-semibold" for="solReparacion{{ g.id }}">
+                                                                        🔧 Reparación / Servicio Técnico
+                                                                        <div class="small text-muted fw-normal">Ajuste, mantenimiento o cambio de pieza interna.</div>
+                                                                    </label>
+                                                                </div>
+                                                            </div>
+                                                            <div class="col-sm-6">
+                                                                <div class="form-check p-3 border rounded bg-white h-100">
+                                                                    <input class="form-check-input" type="radio" name="tipo_resolucion" id="solReembolso{{ g.id }}" value="reembolso">
+                                                                    <label class="form-check-label fw-semibold" for="solReembolso{{ g.id }}">
+                                                                        💵 Devolución / Reembolso
+                                                                        <div class="small text-muted fw-normal">Nota de crédito o reembolso al cliente.</div>
+                                                                    </label>
+                                                                </div>
+                                                            </div>
+                                                            <div class="col-sm-6">
+                                                                <div class="form-check p-3 border rounded bg-white h-100">
+                                                                    <input class="form-check-input" type="radio" name="tipo_resolucion" id="solOtro{{ g.id }}" value="otro">
+                                                                    <label class="form-check-label fw-semibold" for="solOtro{{ g.id }}">
+                                                                        📋 Otro Acuerdo Comercial
+                                                                        <div class="small text-muted fw-normal">Solución especial acordada con el cliente.</div>
+                                                                    </label>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- Falla reportada -->
+                                                    <div class="mb-3">
+                                                        <label class="form-label fw-bold text-dark">Falla Reportada por el Cliente <span class="text-danger">*</span></label>
+                                                        <textarea name="motivo_reclamo" class="form-control" rows="2" placeholder="Describa la falla o problema manifestado por el cliente..." required></textarea>
+                                                    </div>
+
+                                                    <!-- Diagnóstico -->
+                                                    <div class="mb-3">
+                                                        <label class="form-label fw-bold text-dark">Diagnóstico / Evaluación Técnica</label>
+                                                        <textarea name="diagnostico" class="form-control" rows="2" placeholder="Resultado de la revisión técnica del equipo o producto..."></textarea>
+                                                    </div>
+
+                                                    <!-- Resolución -->
+                                                    <div class="mb-3">
+                                                        <label class="form-label fw-bold text-dark">Resolución / Solución Aplicada <span class="text-danger">*</span></label>
+                                                        <textarea name="resolucion_notas" class="form-control" rows="2" placeholder="Detalle qué se realizó para dar respuesta al cliente (ej. cambio de componente, entrega de nuevo producto sellado)..." required></textarea>
+                                                    </div>
+
+                                                    <!-- Checkbox de Descuento de Inventario para reemplazos -->
+                                                    <div class="form-check p-3 bg-light rounded border">
+                                                        <input class="form-check-input ms-0 me-2" type="checkbox" name="descontar_inventario" value="1" id="stockDescontar{{ g.id }}">
+                                                        <label class="form-check-label" for="stockDescontar{{ g.id }}">
+                                                            <strong>Descontar 1 unidad del inventario</strong> (Aplica si se seleccionó <em>Reemplazo</em> y se entrega una unidad nueva del stock).
+                                                            <div class="small text-muted">Stock actual disponible en bodega: <strong>{{ g.producto_existencia }}</strong> unidades.</div>
+                                                        </label>
+                                                    </div>
+                                                </div>
+
+                                                <div class="modal-footer bg-light p-3">
+                                                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                                                    <button type="submit" class="btn btn-primary px-4 fw-semibold shadow-sm">
+                                                        <i class="bi bi-check-circle me-1"></i> Procesar y Ejecutar Garantía
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                <!-- MODAL DETALLE DE RECLAMO EJECUTADO -->
+                                {% if g.estado == 'ejecutada' %}
+                                <div class="modal fade text-start" id="modalDetalle{{ g.id }}" tabindex="-1" aria-hidden="true">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content border-0 shadow">
+                                            <div class="modal-header bg-info-subtle">
+                                                <h5 class="modal-title fw-bold text-dark">
+                                                    <i class="bi bi-file-earmark-medical text-primary me-2"></i>Detalle de Ejecución — {{ g.codigo }}
+                                                </h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <div class="modal-body p-4">
+                                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                                    <span class="badge bg-primary px-3 py-2 text-uppercase">
+                                                        {{ g.tipo_resolucion or 'Resuelta' }}
+                                                    </span>
+                                                    <span class="small text-muted">Fecha: {{ g.fecha_ejecucion }}</span>
+                                                </div>
+
+                                                <div class="mb-3">
+                                                    <strong class="text-muted small text-uppercase d-block">Producto</strong>
+                                                    <div class="fw-bold">{{ g.producto_nombre }} ({{ g.producto_codigo }})</div>
+                                                </div>
+
+                                                <div class="mb-3">
+                                                    <strong class="text-muted small text-uppercase d-block">Cliente</strong>
+                                                    <div>{{ g.cliente or 'Consumidor Final' }} (Venta #{{ g.venta_id }})</div>
+                                                </div>
+
+                                                <div class="mb-3">
+                                                    <strong class="text-muted small text-uppercase d-block">Atendido por</strong>
+                                                    <div>{{ g.usuario_ejecuta_nombre or 'Sistema' }}</div>
+                                                </div>
+
+                                                <div class="mb-3 p-3 bg-light rounded">
+                                                    <strong class="text-dark small text-uppercase d-block mb-1">Falla Reportada</strong>
+                                                    <p class="mb-0 small text-secondary">{{ g.motivo_reclamo or 'Sin descripción' }}</p>
+                                                </div>
+
+                                                <div class="mb-3 p-3 bg-light rounded">
+                                                    <strong class="text-dark small text-uppercase d-block mb-1">Diagnóstico Técnico</strong>
+                                                    <p class="mb-0 small text-secondary">{{ g.diagnostico or 'Sin diagnóstico registrado' }}</p>
+                                                </div>
+
+                                                <div class="p-3 bg-light rounded border border-success-subtle">
+                                                    <strong class="text-success small text-uppercase d-block mb-1">Resolución Aplicada</strong>
+                                                    <p class="mb-0 small text-dark">{{ g.resolucion_notas or 'Sin notas de resolución' }}</p>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer bg-light p-3">
+                                                <a href="{{ url_for('certificado_garantia', garantia_id=g.id) }}" class="btn btn-outline-secondary btn-sm">
+                                                    <i class="bi bi-printer me-1"></i> Imprimir Certificado
+                                                </a>
+                                                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center py-5 text-muted">
+                                <i class="bi bi-shield-slash fs-1 d-block mb-2 text-secondary"></i>
+                                <h5>No se encontraron garantías con los filtros aplicados</h5>
+                                <p class="small mb-0">Intenta ajustando el estado de búsqueda o limpiando los filtros.</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
