@@ -290,9 +290,18 @@
                                                             <td>Vacaciones Proporcionales (Art. 76)</td>
                                                             <td class="text-center">{{ l.dias_vacaciones_pendientes }} días</td>
                                                             <td class="text-end">C$ {{ l.monto_vacaciones | moneda }}</td>
-                                                            <td class="text-end text-muted">Exento INSS</td>
-                                                            <td class="text-end fw-semibold">C$ {{ l.monto_vacaciones | moneda }}</td>
+                                                            <td class="text-end text-danger">{% if l.inss_vacaciones and l.inss_vacaciones > 0 %}- C$ {{ l.inss_vacaciones | moneda }} (INSS 7%){% else %}-{% endif %}</td>
+                                                            <td class="text-end fw-semibold">C$ {{ (l.monto_vacaciones - (l.inss_vacaciones or 0)) | moneda }}</td>
                                                         </tr>
+                                                        {% if l.ir_laboral and l.ir_laboral > 0 %}
+                                                        <tr>
+                                                            <td>Retención IR (Ley 822 - Rentas del Trabajo)</td>
+                                                            <td class="text-center">Tarifa progresiva</td>
+                                                            <td class="text-end">-</td>
+                                                            <td class="text-end text-danger">- C$ {{ l.ir_laboral | moneda }}</td>
+                                                            <td class="text-end text-danger fw-semibold">- C$ {{ l.ir_laboral | moneda }}</td>
+                                                        </tr>
+                                                        {% endif %}
                                                         <tr>
                                                             <td>Décimo Tercer Mes / Aguinaldo (Art. 93)</td>
                                                             <td class="text-center">{{ l.dias_aguinaldo_proporcional }} días</td>

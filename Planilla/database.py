@@ -636,6 +636,9 @@ def init_db():
             dias_salario_pendiente REAL NOT NULL DEFAULT 0,
             monto_salario_pendiente REAL NOT NULL DEFAULT 0,
             inss_salario_pendiente REAL NOT NULL DEFAULT 0,
+            inss_vacaciones REAL NOT NULL DEFAULT 0,
+            total_inss_laboral REAL NOT NULL DEFAULT 0,
+            ir_laboral REAL NOT NULL DEFAULT 0,
             dias_vacaciones_pendientes REAL NOT NULL DEFAULT 0,
             monto_vacaciones REAL NOT NULL DEFAULT 0,
             dias_aguinaldo_proporcional REAL NOT NULL DEFAULT 0,
@@ -655,6 +658,9 @@ def init_db():
             FOREIGN KEY (empleado_id) REFERENCES empleados(id),
             FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
         )""")
+        _agregar_columna_si_falta(conn, "liquidaciones", "inss_vacaciones", "REAL NOT NULL DEFAULT 0")
+        _agregar_columna_si_falta(conn, "liquidaciones", "total_inss_laboral", "REAL NOT NULL DEFAULT 0")
+        _agregar_columna_si_falta(conn, "liquidaciones", "ir_laboral", "REAL NOT NULL DEFAULT 0")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_liquidaciones_emp ON liquidaciones(empleado_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_liquidaciones_fecha ON liquidaciones(fecha_salida)")
 
@@ -1277,8 +1283,8 @@ def calcular_saldo_vacaciones(conn, empleado_id, fecha_corte=None):
     """, (empleado_id,)).fetchone()
     dias_gozados = round(float(row_gozadas["total_gozadas"]), 2)
 
-    # Saldo de días pendientes
-    dias_pendientes = max(0.0, round(dias_acumulados - dias_gozados, 2))
+    # Saldo de días pendientes (puede ser negativo si disfrutó más días de los devengados a la fecha)
+    dias_pendientes = round(dias_acumulados - dias_gozados, 2)
     valor_saldo = round(dias_pendientes * salario_diario, 2)
 
     return {
@@ -1300,7 +1306,7 @@ def calcular_saldo_vacaciones(conn, empleado_id, fecha_corte=None):
 
 
 def registrar_vacaciones_gozadas(conn, empleado_id, fecha_inicio, fecha_fin, dias_gozados, observaciones="", usuario_id=None):
-    """Registra una toma de vacaciones por un empleado."""
+    """Registra una toma de vacaciones por un empleado con restricción de saldo disponible."""
     dias = float(dias_gozados)
     if dias <= 0:
         raise ValueError("Los días de vacaciones gozados deben ser mayores a cero.")
@@ -1309,6 +1315,21 @@ def registrar_vacaciones_gozadas(conn, empleado_id, fecha_inicio, fecha_fin, dia
     f_fin = date.fromisoformat(fecha_fin[:10])
     if f_ini > f_fin:
         raise ValueError("La fecha de inicio de vacaciones no puede ser posterior a la fecha de fin.")
+
+    # Restricción: Validar que el colaborador cuente con saldo favorable
+    saldo_actual = calcular_saldo_vacaciones(conn, empleado_id, f_ini)
+    saldo_disp = saldo_actual["dias_pendientes"]
+    if saldo_disp <= 0:
+        raise ValueError(
+            f"Restricción de Vacaciones: El colaborador {saldo_actual['nombre']} tiene un saldo en negativo "
+            f"({saldo_disp} días). No puede solicitar ni registrar más días de vacaciones anticipadas hasta acumular nuevo saldo."
+        )
+
+    if dias > saldo_disp:
+        raise ValueError(
+            f"Restricción de Vacaciones: Los días solicitados ({dias}) exceden el saldo disponible "
+            f"({saldo_disp} días) de {saldo_actual['nombre']}."
+        )
 
     cursor = conn.execute("""
         INSERT INTO vacaciones_gozadas (empleado_id, fecha_inicio, fecha_fin, dias_gozados, observaciones, estado, usuario_id)
@@ -1334,6 +1355,54 @@ def obtener_historial_vacaciones(conn, empleado_id=None):
     sql += " ORDER BY v.fecha_inicio DESC, v.id DESC"
 
     return conn.execute(sql, params).fetchall()
+
+
+def obtener_vacacion_por_id(conn, vacacion_id):
+    """Retorna el detalle completo de un registro de vacaciones gozadas para su comprobante/recibo."""
+    sql = """
+        SELECT v.*, 
+               COALESCE(e.nombre, e.primer_nombre || ' ' || e.primer_apellido) AS empleado_nombre,
+               e.cedula AS empleado_cedula,
+               e.numero_inss AS empleado_inss,
+               e.salario_base AS empleado_salario_base,
+               e.fecha_ingreso AS empleado_fecha_ingreso,
+               COALESCE(c.nombre, e.cargo, 'Personal') AS cargo_nombre,
+               u.usuario AS usuario_registro
+        FROM vacaciones_gozadas v
+        JOIN empleados e ON e.id = v.empleado_id
+        LEFT JOIN cargos c ON c.id = e.cargo_id
+        LEFT JOIN usuarios u ON u.id = v.usuario_id
+        WHERE v.id = ?
+    """
+    row = conn.execute(sql, (vacacion_id,)).fetchone()
+    if not row:
+        return None
+
+    data = dict(row)
+    salario_base = float(data["empleado_salario_base"] or 0.0)
+    salario_diario = round(salario_base / 30.0, 2)
+    dias_gozados = float(data["dias_gozados"] or 0.0)
+    monto_remunerado = round(dias_gozados * salario_diario, 2)
+
+    # Calcular fecha estimada de retorno / reincorporación (día hábil posterior a fecha_fin)
+    try:
+        f_fin = date.fromisoformat(data["fecha_fin"][:10])
+        f_retorno = f_fin + timedelta(days=1)
+        if f_retorno.weekday() == 6:  # Si cae domingo, se presenta el lunes
+            f_retorno += timedelta(days=1)
+        fecha_retorno_str = f_retorno.isoformat()
+    except Exception:
+        fecha_retorno_str = data["fecha_fin"]
+
+    # Saldo acumulado a la fecha de inicio
+    saldo = calcular_saldo_vacaciones(conn, data["empleado_id"], data["fecha_inicio"])
+
+    data["salario_base"] = salario_base
+    data["salario_diario"] = salario_diario
+    data["monto_remunerado"] = monto_remunerado
+    data["fecha_retorno"] = fecha_retorno_str
+    data["saldo_actual"] = saldo
+    return data
 
 
 def obtener_resumen_vacaciones_todos(conn, fecha_corte=None):
@@ -1451,7 +1520,7 @@ def calcular_liquidacion(
 
     # 3. Vacaciones Pendientes / Proporcionales (Art. 76)
     saldo_vac = calcular_saldo_vacaciones(conn, empleado_id, f_salida)
-    dias_vacaciones_pendientes = saldo_vac["dias_pendientes"]
+    dias_vacaciones_pendientes = max(0.0, saldo_vac["dias_pendientes"])
     monto_vacaciones = round(dias_vacaciones_pendientes * salario_diario, 2)
 
     # 4. Décimo Tercer Mes (Aguinaldo Proporcional - Art. 93, 94)
@@ -1480,30 +1549,37 @@ def calcular_liquidacion(
     meses_indemnizacion = 0.0
     monto_indemnizacion = 0.0
 
-    if aplica_indemnizacion and total_dias_trabajados >= 30:
-        # Primeros 3 años: 1 mes por año
+    if aplica_indemnizacion and total_dias_trabajados > 0:
+        # Primeros 3 años: 1 mes por cada año trabajado (si no tiene el año se calcula la fracción proporcional)
         anios_primeros = min(antiguedad_anios_decimal, 3.0)
         meses_indemnizacion = anios_primeros * 1.0
 
-        # A partir del 4to año: 20 días por año (20/30 mes)
+        # A partir del 4to año: 20 días por año (20/30 de mes por año laborado)
         if antiguedad_anios_decimal > 3.0:
             anios_restantes = antiguedad_anios_decimal - 3.0
             meses_indemnizacion += anios_restantes * (20.0 / 30.0)
 
-        # Límite legal máximo: 5 meses
+        # Límite legal máximo: 5 meses de salario
         meses_indemnizacion = min(meses_indemnizacion, 5.0)
-
-        # Límite mínimo legal si laboró al menos 1 año
-        if antiguedad_anios_decimal >= 1.0 and meses_indemnizacion < 1.0:
-            meses_indemnizacion = 1.0
 
         meses_indemnizacion = round(meses_indemnizacion, 4)
         monto_indemnizacion = round(meses_indemnizacion * salario_base, 2)
 
-    # 6. Deducciones y Totales
+    # 6. Deducciones de Ley (INSS e IR) y Totales
+    # INSS Laboral (7%): Se aplica sobre Salario Pendiente y Vacaciones Proporcionales (Ley de Seguridad Social de Nicaragua)
+    # El Aguinaldo (Art. 93 Ley 185) y la Indemnización por Antigüedad están exentos de INSS por ley.
+    inss_salario_pendiente = round(monto_salario_pendiente * 0.07, 2)
+    inss_vacaciones = round(monto_vacaciones * 0.07, 2)
+    total_inss_laboral = round(inss_salario_pendiente + inss_vacaciones, 2)
+
+    # IR Laboral (Rentas del Trabajo, Ley 822 de Concertación Tributaria):
+    # Aplica sobre Salario Pendiente y Vacaciones no descansadas. Aguinaldo e Indemnización están exentos (Art. 19 Ley 822).
+    base_gravable_ir = monto_salario_pendiente + monto_vacaciones
+    ir_laboral = calcular_ir_nicaragua(base_gravable_ir, total_inss_laboral) if base_gravable_ir > 0 else 0.0
+
     otras_ded = max(0.0, float(otras_deducciones))
     total_bruto = round(monto_salario_pendiente + monto_vacaciones + monto_aguinaldo + monto_indemnizacion, 2)
-    total_deducciones = round(inss_salario_pendiente + otras_ded, 2)
+    total_deducciones = round(total_inss_laboral + ir_laboral + otras_ded, 2)
     total_neto = max(0.0, round(total_bruto - total_deducciones, 2))
 
     return {
@@ -1522,24 +1598,28 @@ def calcular_liquidacion(
         "dias_servicio": dias,
         "total_dias_trabajados": total_dias_trabajados,
         
-        # Conceptos:
+        # Conceptos devengados:
         "dias_salario_pendiente": dias_sal_pend,
         "monto_salario_pendiente": monto_salario_pendiente,
-        "inss_salario_pendiente": inss_salario_pendiente,
-        
         "dias_vacaciones_pendientes": dias_vacaciones_pendientes,
         "monto_vacaciones": monto_vacaciones,
-        
         "dias_aguinaldo_proporcional": dias_aguinaldo_proporcional,
         "monto_aguinaldo": monto_aguinaldo,
         
+        # Indemnización:
         "aplica_indemnizacion": 1 if aplica_indemnizacion else 0,
         "meses_indemnizacion": meses_indemnizacion,
         "monto_indemnizacion": monto_indemnizacion,
         
+        # Deducciones de Ley y Otras:
+        "inss_salario_pendiente": inss_salario_pendiente,
+        "inss_vacaciones": inss_vacaciones,
+        "total_inss_laboral": total_inss_laboral,
+        "ir_laboral": ir_laboral,
         "otras_deducciones": otras_ded,
         "motivo_deducciones": motivo_deducciones.strip(),
         
+        # Totales:
         "total_bruto": total_bruto,
         "total_deducciones": total_deducciones,
         "total_neto": total_neto
@@ -1561,6 +1641,7 @@ def guardar_liquidacion(conn, datos, usuario_id=None, dar_de_baja=True):
             salario_base_mensual, salario_diario, motivo, regimen,
             anios_servicio, meses_servicio, dias_servicio, total_dias_trabajados,
             dias_salario_pendiente, monto_salario_pendiente, inss_salario_pendiente,
+            inss_vacaciones, total_inss_laboral, ir_laboral,
             dias_vacaciones_pendientes, monto_vacaciones,
             dias_aguinaldo_proporcional, monto_aguinaldo,
             aplica_indemnizacion, meses_indemnizacion, monto_indemnizacion,
@@ -1571,6 +1652,7 @@ def guardar_liquidacion(conn, datos, usuario_id=None, dar_de_baja=True):
             ?, ?, ?, ?,
             ?, ?, ?, ?,
             ?, ?, ?, ?,
+            ?, ?, ?,
             ?, ?, ?,
             ?, ?,
             ?, ?,
@@ -1583,7 +1665,8 @@ def guardar_liquidacion(conn, datos, usuario_id=None, dar_de_baja=True):
         codigo, datos["empleado_id"], datos["fecha_ingreso"], datos["fecha_salida"],
         datos["salario_base_mensual"], datos["salario_diario"], datos["motivo"], datos["regimen"],
         datos["anios_servicio"], datos["meses_servicio"], datos["dias_servicio"], datos["total_dias_trabajados"],
-        datos["dias_salario_pendiente"], datos["monto_salario_pendiente"], datos["inss_salario_pendiente"],
+        datos["dias_salario_pendiente"], datos["monto_salario_pendiente"], datos.get("inss_salario_pendiente", 0.0),
+        datos.get("inss_vacaciones", 0.0), datos.get("total_inss_laboral", datos.get("inss_salario_pendiente", 0.0)), datos.get("ir_laboral", 0.0),
         datos["dias_vacaciones_pendientes"], datos["monto_vacaciones"],
         datos["dias_aguinaldo_proporcional"], datos["monto_aguinaldo"],
         datos["aplica_indemnizacion"], datos["meses_indemnizacion"], datos["monto_indemnizacion"],

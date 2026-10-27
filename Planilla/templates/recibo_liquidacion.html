@@ -281,10 +281,11 @@
                     </tr>
 
                     <!-- INSS Salario Pendiente -->
+                    {% if liq.monto_salario_pendiente > 0 %}
                     <tr>
                         <td>
-                            <div class="text-muted">INSS Laboral (7.00%)</div>
-                            <div class="text-muted small">Aplicable únicamente sobre el salario ordinario pendiente devengado</div>
+                            <div class="text-muted">INSS Laboral (7.00% s/ Salario Pendiente)</div>
+                            <div class="text-muted small">Ley de Seguridad Social de Nicaragua</div>
                         </td>
                         <td class="text-center font-mono small">
                             7% s/ C$ {{ '{:,.2f}'.format(liq.monto_salario_pendiente) }}
@@ -293,6 +294,37 @@
                             - C$ {{ '{:,.2f}'.format(liq.inss_salario_pendiente) }}
                         </td>
                     </tr>
+                    {% endif %}
+
+                    <!-- INSS Vacaciones Pendientes -->
+                    {% if liq.inss_vacaciones and liq.inss_vacaciones > 0 %}
+                    <tr>
+                        <td>
+                            <div class="text-muted">INSS Laboral (7.00% s/ Vacaciones)</div>
+                            <div class="text-muted small">Cotización obligatoria sobre descanso compensado en dinero</div>
+                        </td>
+                        <td class="text-center font-mono small">
+                            7% s/ C$ {{ '{:,.2f}'.format(liq.monto_vacaciones) }}
+                        </td>
+                        <td class="text-end font-mono text-danger">
+                            - C$ {{ '{:,.2f}'.format(liq.inss_vacaciones) }}
+                        </td>
+                    </tr>
+                    {% endif %}
+
+                    <!-- IR Rentas del Trabajo -->
+                    {% if liq.ir_laboral and liq.ir_laboral > 0 %}
+                    <tr>
+                        <td>
+                            <div class="text-muted">IR Retención (Rentas del Trabajo)</div>
+                            <div class="text-muted small">Ley 822 de Concertación Tributaria (DGI)</div>
+                        </td>
+                        <td class="text-center font-mono small">Tarifa progresiva</td>
+                        <td class="text-end font-mono text-danger">
+                            - C$ {{ '{:,.2f}'.format(liq.ir_laboral) }}
+                        </td>
+                    </tr>
+                    {% endif %}
 
                     <!-- Otras Deducciones -->
                     {% if liq.otras_deducciones > 0 %}

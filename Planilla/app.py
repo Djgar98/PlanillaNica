@@ -18,6 +18,7 @@ from database import (
     anular_garantias_parcial, obtener_garantias, obtener_resumen_garantias,
     obtener_garantia_por_id, ejecutar_garantia,
     calcular_saldo_vacaciones, registrar_vacaciones_gozadas, obtener_historial_vacaciones,
+    obtener_vacacion_por_id,
     obtener_resumen_vacaciones_todos, calcular_antiguedad_detallada, calcular_liquidacion,
     guardar_liquidacion, obtener_liquidaciones, obtener_resumen_liquidaciones,
     obtener_liquidacion_por_id
@@ -1490,7 +1491,7 @@ def registrar_vacaciones():
         
     try:
         with get_db() as conn:
-            registrar_vacaciones_gozadas(
+            id_reg = registrar_vacaciones_gozadas(
                 conn,
                 empleado_id=empleado_id,
                 fecha_inicio=fecha_inicio,
@@ -1500,10 +1501,26 @@ def registrar_vacaciones():
                 usuario_id=session.get("usuario_id")
             )
         flash(f"Registro de {dias_gozados} días de vacaciones guardado correctamente.", "success")
+        return redirect(url_for("recibo_vacaciones", vacacion_id=id_reg))
     except ValueError as e:
         flash(str(e), "danger")
         
     return redirect(url_for("vacaciones"))
+
+
+@app.route("/vacaciones/recibo/<int:vacacion_id>")
+@requiere_login
+def recibo_vacaciones(vacacion_id):
+    rol = session.get("rol")
+    if not (tiene_permiso(rol, "consultar_planilla") or tiene_permiso(rol, "consultar_empleados") or tiene_permiso(rol, "gestionar_empleados")):
+        abort(403, "No tienes permiso para consultar el comprobante de vacaciones.")
+
+    with get_db() as conn:
+        vacacion = obtener_vacacion_por_id(conn, vacacion_id)
+        if not vacacion:
+            abort(404, "El registro de vacaciones no existe.")
+
+    return render_template("recibo_vacaciones.html", vacacion=vacacion)
 
 
 # =====================================================================

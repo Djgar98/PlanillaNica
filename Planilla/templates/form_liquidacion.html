@@ -191,11 +191,14 @@
                                 </div>
                                 <div class="col-md-6" id="divForzarIndemnizacion" style="display: none;">
                                     <label class="form-label fw-semibold small text-muted">Excepción en Renuncia</label>
-                                    <div class="form-check mt-2">
-                                        <input class="form-check-input" type="checkbox" id="forzar_indemnizacion" name="forzar_indemnizacion" value="1">
-                                        <label class="form-check-label small fw-semibold text-dark" for="forzar_indemnizacion">
+                                    <div class="form-check p-2 rounded-2 border bg-light mt-1">
+                                        <input class="form-check-input ms-0 me-2" type="checkbox" id="forzar_indemnizacion" name="forzar_indemnizacion" value="1">
+                                        <label class="form-check-label small fw-semibold text-dark" for="forzar_indemnizacion" id="lblForzarIndemnizacion">
                                             Pagar Indemnización Art. 45 por mutuo acuerdo / régimen público
                                         </label>
+                                        <div class="text-muted small mt-1 ps-4" style="font-size: 0.78rem;" id="helpForzarIndemnizacion">
+                                            <i class="bi bi-info-circle text-primary"></i> <strong>Por ley (Ley 185)</strong>, la renuncia en el sector privado no incluye indemnización por antigüedad. Actívalo solo si existe un acuerdo mutuo patronal por escrito.
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -311,6 +314,7 @@
                                     <div class="concept-row" id="rowIndemnizacion">
                                         <div>
                                             <span class="small fw-semibold text-danger">Indemnización por Años (Art. 45)</span>
+                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle small ms-1" id="badgeExcepcionIndem" style="display: none; font-size: 0.7rem;">Excepción / Mutuo Acuerdo</span>
                                             <div class="text-muted small" style="font-size: 0.75rem;" id="prevDetalleIndemnizacion">
                                                 Reconocido: <strong class="font-mono" id="prevMesesIndemnizacion">0.00</strong> meses
                                             </div>
@@ -337,6 +341,21 @@
                                             <span class="small text-muted">INSS Laboral (7% s/ Salario Pendiente)</span>
                                         </div>
                                         <div class="font-mono text-danger">- C$ <span id="prevInssSalario">0.00</span></div>
+                                    </div>
+
+                                    <div class="concept-row">
+                                        <div>
+                                            <span class="small text-muted">INSS Laboral (7% s/ Vacaciones)</span>
+                                        </div>
+                                        <div class="font-mono text-danger">- C$ <span id="prevInssVacaciones">0.00</span></div>
+                                    </div>
+
+                                    <div class="concept-row">
+                                        <div>
+                                            <span class="small text-muted">IR Retención (Ley 822 - Rentas del Trabajo)</span>
+                                            <span class="badge bg-light text-muted small ms-1" id="badgeIrExento" style="display: none; font-size: 0.7rem;">Exento (≤ C$ 100k/año)</span>
+                                        </div>
+                                        <div class="font-mono text-danger">- C$ <span id="prevIrLaboral">0.00</span></div>
                                     </div>
 
                                     <div class="concept-row" id="rowOtrasDeducciones">
@@ -381,17 +400,21 @@
             const cardDespido = document.getElementById('cardDespido');
             const cardRenuncia = document.getElementById('cardRenuncia');
             const divForzar = document.getElementById('divForzarIndemnizacion');
+            const chkForzar = document.getElementById('forzar_indemnizacion');
 
             if (motivo === 'despido') {
                 rDespido.checked = true;
                 cardDespido.className = 'selection-card active-despido';
                 cardRenuncia.className = 'selection-card';
                 divForzar.style.display = 'none';
+                if (chkForzar) chkForzar.checked = false;
             } else {
                 rRenuncia.checked = true;
                 cardRenuncia.className = 'selection-card active-renuncia';
                 cardDespido.className = 'selection-card';
                 divForzar.style.display = 'block';
+                // Por defecto legal (Ley 185), la renuncia ordinaria en sector privado NO devenga indemnización Art. 45
+                if (chkForzar) chkForzar.checked = false;
             }
             solicitarCalculoAjax();
         }
@@ -464,16 +487,32 @@
             document.getElementById('prevDiasAguinaldo').textContent = Number(d.dias_aguinaldo_proporcional).toFixed(2);
             document.getElementById('prevMontoAguinaldo').textContent = fmt(d.monto_aguinaldo);
 
+            const badgeExcep = document.getElementById('badgeExcepcionIndem');
             if (d.aplica_indemnizacion && d.monto_indemnizacion > 0) {
                 document.getElementById('rowIndemnizacion').style.display = 'flex';
                 document.getElementById('prevMesesIndemnizacion').textContent = Number(d.meses_indemnizacion).toFixed(2);
                 document.getElementById('prevMontoIndemnizacion').textContent = fmt(d.monto_indemnizacion);
+                if (badgeExcep) {
+                    badgeExcep.style.display = (d.motivo === 'renuncia') ? 'inline-block' : 'none';
+                }
             } else {
                 document.getElementById('rowIndemnizacion').style.display = 'none';
+                if (badgeExcep) {
+                    badgeExcep.style.display = 'none';
+                }
             }
 
             document.getElementById('prevTotalBruto').textContent = fmt(d.total_bruto);
             document.getElementById('prevInssSalario').textContent = fmt(d.inss_salario_pendiente);
+            document.getElementById('prevInssVacaciones').textContent = fmt(d.inss_vacaciones);
+            document.getElementById('prevIrLaboral').textContent = fmt(d.ir_laboral);
+
+            const badgeIr = document.getElementById('badgeIrExento');
+            if (badgeIr) {
+                const baseImponible = (d.monto_salario_pendiente || 0) + (d.monto_vacaciones || 0);
+                badgeIr.style.display = (d.ir_laboral <= 0 && baseImponible > 0) ? 'inline-block' : 'none';
+            }
+
             document.getElementById('prevOtrasDeducciones').textContent = fmt(d.otras_deducciones);
             document.getElementById('prevTotalDeducciones').textContent = fmt(d.total_deducciones);
             document.getElementById('prevTotalNeto').textContent = fmt(d.total_neto);
