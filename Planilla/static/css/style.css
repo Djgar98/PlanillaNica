@@ -1,19 +1,99 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
+/* ==========================================================================
+   GLOBAL RESET & RESPONSIVE FOUNDATION
+   ========================================================================== */
+html {
+    box-sizing: border-box;
+    -webkit-text-size-adjust: 100%;
+}
+
+*, *::before, *::after {
+    box-sizing: inherit;
+}
+
 body {
     font-family: 'Inter', sans-serif;
     background-color: #f8fafc;
     color: #334155;
+    overflow-x: hidden;
+    min-width: 320px;
+    width: 100%;
 }
 
+img, svg {
+    max-width: 100%;
+    height: auto;
+}
+
+/* ==========================================================================
+   NAVBAR & HEADER RESPONSIVE ENHANCEMENTS
+   ========================================================================== */
 .navbar {
     background-color: #0f172a !important;
 }
 
+.navbar-brand {
+    white-space: nowrap;
+    letter-spacing: -0.01em;
+}
+
+.navbar .nav-link {
+    font-weight: 500;
+    padding-left: 0.65rem !important;
+    padding-right: 0.65rem !important;
+    white-space: nowrap;
+}
+
+/* Navbar collapse styling on mobile / tablet */
+@media (max-width: 1199.98px) {
+    .navbar-collapse {
+        background-color: #0f172a;
+        padding: 1rem 0;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        margin-top: 0.75rem;
+    }
+    
+    .navbar-nav .nav-link {
+        padding: 0.5rem 0.75rem !important;
+        border-radius: 6px;
+    }
+    
+    .navbar-nav .nav-link:hover {
+        background-color: rgba(255, 255, 255, 0.05);
+    }
+
+    .navbar-nav .dropdown-menu {
+        background-color: #1e293b !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        margin-left: 0.5rem;
+        margin-right: 0.5rem;
+    }
+
+    .navbar-nav .dropdown-item {
+        color: #cbd5e1 !important;
+    }
+
+    .navbar-nav .dropdown-item:hover {
+        background-color: #334155 !important;
+        color: #ffffff !important;
+    }
+}
+
+/* ==========================================================================
+   CARDS & CONTAINERS
+   ========================================================================== */
 .card {
     border: 1px solid #e2e8f0;
     border-radius: 14px;
     box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+}
+
+.login-card {
+    max-width: 440px;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .employee-card {
@@ -26,6 +106,154 @@ body {
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
+/* Interactive Hover Lift */
+.hover-lift {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* ==========================================================================
+   KPI & STAT CARDS RESPONSIVE
+   ========================================================================== */
+.kpi-stat-card {
+    background: #ffffff;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    padding: 1.25rem;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    position: relative;
+    overflow: hidden;
+    height: 100%;
+}
+
+.kpi-stat-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.08);
+}
+
+.kpi-icon-badge {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.35rem;
+}
+
+.kpi-card {
+    border-radius: 12px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.action-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 1.25rem;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    height: 100%;
+}
+.action-card:hover {
+    border-color: #3b82f6;
+    background: #f8fafc;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px -4px rgba(59, 130, 246, 0.12);
+    color: inherit;
+}
+
+/* Sticky Preview Cards with responsive scroll */
+.calc-preview-card {
+    border-radius: 14px;
+    background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+}
+
+@media (min-width: 992px) {
+    .calc-preview-card {
+        position: sticky;
+        top: 1.25rem;
+        max-height: calc(100vh - 2.5rem);
+        overflow-y: auto;
+    }
+}
+
+/* ==========================================================================
+   TABLES & RESPONSIVE WRAPPERS
+   ========================================================================== */
+.table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+    margin-bottom: 0;
+}
+
+/* Custom subtle scrollbar for tables */
+.table-responsive::-webkit-scrollbar {
+    height: 6px;
+}
+.table-responsive::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 4px;
+}
+.table-responsive::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+.table-responsive::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+.table th {
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+/* ==========================================================================
+   FORMS & INPUTS RESPONSIVE
+   ========================================================================== */
+.form-control, .form-select {
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    padding: 0.55rem 0.8rem;
+    font-size: 0.9rem;
+    min-width: 0;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.btn-action {
+    font-weight: 500;
+    font-size: 0.875rem;
+    padding: 0.4rem 0.8rem;
+    border-radius: 8px;
+}
+
+/* Prevent overlapping in filter toolbars */
+.filter-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* ==========================================================================
+   BADGES & COLOR PALETTE
+   ========================================================================== */
 .badge-activo {
     background-color: #dcfce7;
     color: #166534;
@@ -38,26 +266,6 @@ body {
     font-weight: 600;
 }
 
-.btn-action {
-    font-weight: 500;
-    font-size: 0.875rem;
-    padding: 0.4rem 0.8rem;
-    border-radius: 8px;
-}
-
-.form-control, .form-select {
-    border-radius: 8px;
-    border: 1px solid #cbd5e1;
-    padding: 0.6rem 0.85rem;
-    font-size: 0.9rem;
-}
-
-.form-control:focus {
-    border-color: #2563eb;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
-}
-
-/* Slate Color Palette */
 .text-slate-900 { color: #0f172a !important; }
 .text-slate-800 { color: #1e293b !important; }
 .text-slate-700 { color: #334155 !important; }
@@ -73,17 +281,57 @@ body {
 .badge-subtle-danger { background-color: rgba(220, 38, 38, 0.1); color: #b91c1c; }
 .badge-subtle-info { background-color: rgba(8, 145, 178, 0.1); color: #0e7490; }
 
-/* Interactive Hover Lift */
-.hover-lift {
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-.hover-lift:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08) !important;
+.badge-soft-success { background-color: #dcfce7; color: #15803d; }
+.badge-soft-danger { background-color: #fee2e2; color: #b91c1c; }
+.badge-soft-primary { background-color: #dbeafe; color: #1d4ed8; }
+.badge-soft-warning { background-color: #fef3c7; color: #b45309; }
+
+/* ==========================================================================
+   RESPONSIVE BREAKPOINTS FINE-TUNING
+   ========================================================================== */
+@media (max-width: 767.98px) {
+    /* Responsive spacing on mobile */
+    .container, .container-fluid {
+        padding-left: 0.85rem;
+        padding-right: 0.85rem;
+    }
+
+    .card-body {
+        padding: 1.15rem;
+    }
+
+    h2, .h2 {
+        font-size: 1.45rem;
+    }
+    
+    h3, .h3 {
+        font-size: 1.25rem;
+    }
+
+    h4, .h4 {
+        font-size: 1.1rem;
+    }
+
+    .kpi-stat-card h4, .kpi-card .h3 {
+        font-size: 1.2rem !important;
+    }
+
+    /* Full width buttons on small mobile when stacked */
+    .btn-mobile-block {
+        width: 100%;
+    }
+
+    /* Print/Report view cards on mobile */
+    .reporte, .receipt-card, .document-container, .cert-card {
+        padding: 1.25rem !important;
+        margin: 1rem auto !important;
+        border-radius: 8px !important;
+    }
 }
 
-/* Table Enhancements */
-.table th {
-    font-weight: 600;
-    letter-spacing: 0.02em;
-}
+@media (min-width: 768px) and (max-width: 1199.98px) {
+    /* Medium screens & 1366x768 laptop optimization */
+    .kpi-stat-card h4 {
+        font-size: 1.25rem;
+    }
+}

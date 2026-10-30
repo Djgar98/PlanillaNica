@@ -38,7 +38,7 @@
                 <h3 class="fw-bold text-slate-900 mb-1">Registro de Pagos Diferidos y Parciales</h3>
                 <p class="text-muted small mb-0">Gestione múltiples transacciones de abono por período mensual con control estricto de saldos y auditoría.</p>
             </div>
-            <div class="col-md-5 text-md-end mt-3 mt-md-0 d-flex gap-2 justify-content-md-end">
+            <div class="col-md-5 text-md-end mt-3 mt-md-0 d-flex flex-wrap gap-2 justify-content-start justify-content-md-end">
                 <a href="{{ url_for('modulo_aguinaldo') }}" class="btn btn-outline-success btn-sm px-3 py-2 fw-medium shadow-sm">
                     <i class="bi bi-gift-fill me-1"></i> Cálculo de Aguinaldo
                 </a>
@@ -113,7 +113,7 @@
                     <div class="col-12 col-md-auto fw-semibold text-slate-700 me-2">
                         <i class="bi bi-funnel text-muted me-1"></i> Filtrar Períodos:
                     </div>
-                    <div class="col-12 col-md-4">
+                    <div class="col-12 col-md-5 col-xl-4">
                         <select name="empleado_id" class="form-select form-select-sm">
                             <option value="">-- Todos los Colaboradores --</option>
                             {% for e in empleados %}
@@ -123,7 +123,7 @@
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="col-6 col-md-3">
+                    <div class="col-12 col-sm-6 col-md-4 col-xl-3">
                         <select name="estado" class="form-select form-select-sm">
                             <option value="">-- Todos los Estados --</option>
                             <option value="pendiente" {% if request.args.get('estado') == 'pendiente' %}selected{% endif %}>Pendiente</option>
@@ -131,8 +131,8 @@
                             <option value="pagado_completo" {% if request.args.get('estado') == 'pagado_completo' %}selected{% endif %}>Completado</option>
                         </select>
                     </div>
-                    <div class="col-12 col-md-auto d-flex gap-2 ms-auto">
-                        <button type="submit" class="btn btn-primary btn-sm px-3">
+                    <div class="col-12 col-sm-6 col-md-auto ms-auto d-flex gap-2">
+                        <button type="submit" class="btn btn-primary btn-sm px-3 flex-grow-1 flex-md-grow-0">
                             <i class="bi bi-search me-1"></i> Aplicar
                         </button>
                         {% if request.args.get('empleado_id') or request.args.get('estado') %}

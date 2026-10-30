@@ -15,12 +15,20 @@
             font-family: 'Inter', sans-serif;
         }
         .reporte {
+            width: 100%;
             max-width: 1200px;
-            margin: 2rem auto;
-            padding: 2.5rem;
+            margin: 1rem auto;
+            padding: 1rem;
             background: #ffffff;
             border: 1px solid #dbe1e8;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            box-sizing: border-box;
+        }
+        @media (min-width: 768px) {
+            .reporte {
+                padding: 2.5rem;
+                margin: 2rem auto;
+            }
         }
         .encabezado {
             border-bottom: 2px solid #16a34a;
@@ -87,20 +95,20 @@
         }
     </style>
 </head>
-<body>
+<body class="px-2 px-sm-3 py-2 py-sm-3">
 
     <main class="reporte">
 
         <!-- BARRA DE ACCIÓN Y SELECTOR DE AÑO (NO IMPRIMIBLE) -->
-        <div class="no-imprimir mb-4 p-3 bg-light rounded-3 border d-flex justify-content-between align-items-center">
-            <form method="GET" action="{{ url_for('reporte_aguinaldo') }}" class="d-flex align-items-center gap-2">
+        <div class="no-imprimir mb-4 p-3 bg-light rounded-3 border d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <form method="GET" action="{{ url_for('reporte_aguinaldo') }}" class="d-flex flex-wrap align-items-center gap-2">
                 <label class="fw-bold small text-slate-800 me-1">Año Fiscal:</label>
                 <input type="number" name="anio" class="form-control form-control-sm fw-bold" style="width: 100px;" value="{{ anio_fiscal }}" min="2020" max="2035">
                 <button type="submit" class="btn btn-outline-primary btn-sm px-3">
                     <i class="bi bi-arrow-repeat me-1"></i> Actualizar
                 </button>
             </form>
-            <div class="d-flex gap-2">
+            <div class="d-flex flex-wrap gap-2">
                 <button class="btn btn-primary btn-sm px-3" onclick="window.print()">
                     <i class="bi bi-printer-fill me-1"></i> Imprimir Reporte
                 </button>
@@ -114,7 +122,7 @@
         </div>
 
         <!-- ENCABEZADO FORMAL DEL REPORTE -->
-        <header class="encabezado d-flex justify-content-between align-items-start pb-3 mb-3">
+        <header class="encabezado d-flex flex-wrap justify-content-between align-items-start gap-3 pb-3 mb-3">
             <div>
                 <h1 class="h4 fw-bold mb-1 text-slate-900">PLANILLANICA S.A.</h1>
                 <p class="text-muted small mb-0">RUC: J0310000000000 &nbsp;|&nbsp; Managua, Nicaragua</p>
@@ -188,18 +196,18 @@
         </div>
 
         <!-- BLOQUE DE FIRMAS FORMALES DE AUDITORÍA -->
-        <div class="row pt-5 text-center signature-block">
-            <div class="col-4">
+        <div class="row pt-5 text-center signature-block g-3">
+            <div class="col-12 col-md-4">
                 <hr style="border-top: 1px solid #1f2937; margin-bottom: 0.4rem;">
                 <p class="mb-0 fw-bold small">Elaborado Por</p>
                 <small class="text-muted" style="font-size: 7.5pt;">Recursos Humanos / Nómina</small>
             </div>
-            <div class="col-4">
+            <div class="col-12 col-md-4">
                 <hr style="border-top: 1px solid #1f2937; margin-bottom: 0.4rem;">
                 <p class="mb-0 fw-bold small">Revisado Por</p>
                 <small class="text-muted" style="font-size: 7.5pt;">Contabilidad / Auditoría</small>
             </div>
-            <div class="col-4">
+            <div class="col-12 col-md-4">
                 <hr style="border-top: 1px solid #1f2937; margin-bottom: 0.4rem;">
                 <p class="mb-0 fw-bold small">Aprobado / Autorizado</p>
                 <small class="text-muted" style="font-size: 7.5pt;">Gerencia General</small>

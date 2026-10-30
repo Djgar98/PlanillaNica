@@ -83,7 +83,7 @@
 
     {% include '_nav.html' %}
 
-    <main class="container pb-5">
+    <main class="container-fluid px-3 px-xl-5 pb-5">
         <!-- HEADER / BIENVENIDA Y FILTRO DE MES -->
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
             <div>
@@ -122,7 +122,7 @@
         <!-- 4 TARJETAS KPI PRINCIPALES -->
         <div class="row g-3 mb-4">
             <!-- 1. Ingresos por Ventas -->
-            <div class="col-sm-6 col-lg-3">
+            <div class="col-12 col-sm-6 col-xl-3">
                 <div class="kpi-stat-card shadow-sm border-top border-4 border-success">
                     <div class="d-flex justify-content-between align-items-start mb-2">
                         <div>
@@ -141,7 +141,7 @@
             </div>
 
             <!-- 2. Costo Total Nómina -->
-            <div class="col-sm-6 col-lg-3">
+            <div class="col-12 col-sm-6 col-xl-3">
                 <div class="kpi-stat-card shadow-sm border-top border-4 border-primary">
                     <div class="d-flex justify-content-between align-items-start mb-2">
                         <div>
@@ -160,7 +160,7 @@
             </div>
 
             <!-- 3. Balance Operativo -->
-            <div class="col-sm-6 col-lg-3">
+            <div class="col-12 col-sm-6 col-xl-3">
                 <div class="kpi-stat-card shadow-sm border-top border-4 {% if balance_operativo >= 0 %}border-info{% else %}border-danger{% endif %}">
                     <div class="d-flex justify-content-between align-items-start mb-2">
                         <div>
@@ -185,7 +185,7 @@
             </div>
 
             <!-- 4. Obligaciones INSS / DGI -->
-            <div class="col-sm-6 col-lg-3">
+            <div class="col-12 col-sm-6 col-xl-3">
                 <div class="kpi-stat-card shadow-sm border-top border-4 border-warning">
                     <div class="d-flex justify-content-between align-items-start mb-2">
                         <div>
@@ -208,7 +208,7 @@
         <div class="mb-4">
             <h5 class="fw-bold text-slate-800 mb-3"><i class="bi bi-folder2-open text-primary me-2"></i>Herramientas & Reportes Oficiales</h5>
             <div class="row g-3">
-                <div class="col-md-6 col-lg-3">
+                <div class="col-12 col-sm-6 col-xl-3">
                     <a href="{{ url_for('reporte_planilla_mensual') }}?mes={{ mes }}" class="action-card shadow-sm">
                         <div class="d-flex align-items-center gap-3">
                             <div class="p-3 rounded-3 bg-primary-subtle text-primary fs-4">
@@ -222,7 +222,7 @@
                     </a>
                 </div>
 
-                <div class="col-md-6 col-lg-3">
+                <div class="col-12 col-sm-6 col-xl-3">
                     <a href="{{ url_for('reporte_ventas') }}" class="action-card shadow-sm">
                         <div class="d-flex align-items-center gap-3">
                             <div class="p-3 rounded-3 bg-success-subtle text-success fs-4">
@@ -236,7 +236,7 @@
                     </a>
                 </div>
 
-                <div class="col-md-6 col-lg-3">
+                <div class="col-12 col-sm-6 col-xl-3">
                     <a href="{{ url_for('modulo_aguinaldo') }}" class="action-card shadow-sm">
                         <div class="d-flex align-items-center gap-3">
                             <div class="p-3 rounded-3 bg-warning-subtle text-warning-emphasis fs-4">
@@ -250,7 +250,7 @@
                     </a>
                 </div>
 
-                <div class="col-md-6 col-lg-3">
+                <div class="col-12 col-sm-6 col-xl-3">
                     <a href="{{ url_for('pagos_diferidos') }}" class="action-card shadow-sm">
                         <div class="d-flex align-items-center gap-3">
                             <div class="p-3 rounded-3 bg-info-subtle text-info-emphasis fs-4">

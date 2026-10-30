@@ -15,13 +15,21 @@
             font-family: 'Inter', sans-serif;
         }
         .reporte {
+            width: 100%;
             max-width: 1200px;
-            margin: 2rem auto;
-            padding: 2.5rem;
+            margin: 1rem auto;
+            padding: 1rem;
             background: #ffffff;
             border: 1px solid #e2e8f0;
             border-radius: 12px;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            box-sizing: border-box;
+        }
+        @media (min-width: 768px) {
+            .reporte {
+                padding: 2.5rem;
+                margin: 2rem auto;
+            }
         }
         .encabezado {
             border-bottom: 2px solid #2563eb;
@@ -95,17 +103,17 @@
         }
     </style>
 </head>
-<body>
+<body class="px-2 px-sm-3 py-2 py-sm-3">
 
     <main class="reporte shadow-sm">
 
         <!-- SELECTOR DE MES Y BOTONES DE NAVEGACIÓN (NO IMPRIMIBLES) -->
         <div class="no-imprimir mb-4 p-3 bg-light rounded-3 border">
             <div class="row g-2 align-items-center">
-                <div class="col-md-auto fw-bold text-slate-800">
+                <div class="col-12 col-sm-auto fw-bold text-slate-800">
                     <i class="bi bi-calendar3 text-primary me-1"></i> Consultar Mes:
                 </div>
-                <div class="col-md-3">
+                <div class="col-12 col-sm-auto col-md-3">
                     <form method="GET" action="{{ url_for('reporte_planilla_mensual') }}" class="d-flex gap-2">
                         <input type="month" name="mes" class="form-control form-control-sm fw-semibold" value="{{ mes }}" onchange="this.form.submit()">
                         <button type="submit" class="btn btn-primary btn-sm px-3">
@@ -113,7 +121,7 @@
                         </button>
                     </form>
                 </div>
-                <div class="col-md-auto ms-md-auto d-flex gap-2">
+                <div class="col-12 col-md-auto ms-md-auto d-flex flex-wrap gap-2 pt-2 pt-md-0">
                     <button class="btn btn-primary btn-sm px-3 shadow-sm" onclick="window.print()">
                         <i class="bi bi-printer-fill me-1"></i> Imprimir Reporte
                     </button>
@@ -128,7 +136,7 @@
         </div>
 
         <!-- ENCABEZADO FORMAL DE LA EMPRESA -->
-        <header class="encabezado d-flex justify-content-between align-items-start pb-3 mb-4">
+        <header class="encabezado d-flex flex-wrap justify-content-between align-items-start gap-3 pb-3 mb-4">
             <div>
                 <div class="d-flex align-items-center gap-2 mb-1">
                     <h1 class="h3 fw-bold mb-0 text-slate-900">PLANILLANICA S.A.</h1>
@@ -333,18 +341,18 @@
         </div>
 
         <!-- BLOQUE DE FIRMAS DE AUDITORÍA -->
-        <div class="row pt-4 text-center signature-block">
-            <div class="col-4">
+        <div class="row pt-4 text-center signature-block g-3">
+            <div class="col-12 col-md-4">
                 <hr style="border-top: 1px solid #94a3b8; margin-bottom: 0.5rem;">
                 <p class="mb-0 fw-bold small text-slate-800">Elaborado Por</p>
                 <small class="text-muted" style="font-size: 0.75rem;">Encargado de Nómina / RRHH</small>
             </div>
-            <div class="col-4">
+            <div class="col-12 col-md-4">
                 <hr style="border-top: 1px solid #94a3b8; margin-bottom: 0.5rem;">
                 <p class="mb-0 fw-bold small text-slate-800">Revisado Por</p>
                 <small class="text-muted" style="font-size: 0.75rem;">Contabilidad / Finanzas</small>
             </div>
-            <div class="col-4">
+            <div class="col-12 col-md-4">
                 <hr style="border-top: 1px solid #94a3b8; margin-bottom: 0.5rem;">
                 <p class="mb-0 fw-bold small text-slate-800">Aprobado / Autorizado</p>
                 <small class="text-muted" style="font-size: 0.75rem;">Gerencia General</small>

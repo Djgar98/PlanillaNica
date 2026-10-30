@@ -13,7 +13,7 @@
 <body class="bg-light">
     {% include '_nav.html' %}
 
-    <main class="container pb-5">
+    <main class="container-fluid px-3 px-xl-5 pb-5">
 
         <!-- BREADCRUMB -->
         <nav aria-label="breadcrumb" class="mb-3">
@@ -25,8 +25,8 @@
         </nav>
 
         <!-- CABECERA -->
-        <div class="row align-items-center mb-4">
-            <div class="col-md-7">
+        <div class="row align-items-center mb-4 g-3">
+            <div class="col-12 col-md-7">
                 <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
                     <span class="badge bg-primary-subtle text-primary fw-semibold px-2 py-1">
                         <i class="bi bi-journal-bookmark-fill me-1"></i> Auditoría de Existencias
@@ -42,7 +42,7 @@
                 <h3 class="fw-bold text-slate-900 mb-1">{{ producto.nombre }}</h3>
                 <p class="text-muted small mb-0">Libro auxiliar de movimientos de almacén tecnológico, variaciones de unidades y saldos en tiempo real.</p>
             </div>
-            <div class="col-md-5 text-md-end mt-3 mt-md-0 d-flex flex-wrap gap-2 justify-content-md-end">
+            <div class="col-12 col-md-5 text-start text-md-end d-flex flex-wrap gap-2 justify-content-start justify-content-md-end">
                 <a href="{{ url_for('kardex_lista') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 fw-medium shadow-sm">
                     <i class="bi bi-arrow-left me-1"></i> Lista Kardex
                 </a>
@@ -67,7 +67,7 @@
 
         <!-- TARJETAS DE ESTADÍSTICAS -->
         <div class="row g-3 mb-4">
-            <div class="col-sm-6 col-lg-3">
+            <div class="col-12 col-sm-6 col-xl-3">
                 <div class="card border-0 shadow-sm bg-white rounded-3 h-100 hover-lift">
                     <div class="card-body p-3 d-flex align-items-center gap-3">
                         <div class="{% if producto.existencia <= 0 %}bg-danger bg-opacity-10 text-danger{% else %}bg-success bg-opacity-10 text-success{% endif %} p-3 rounded-3 fs-4">
@@ -81,7 +81,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-sm-6 col-lg-3">
+            <div class="col-12 col-sm-6 col-xl-3">
                 <div class="card border-0 shadow-sm bg-white rounded-3 h-100 hover-lift">
                     <div class="card-body p-3 d-flex align-items-center gap-3">
                         <div class="bg-primary bg-opacity-10 text-primary p-3 rounded-3 fs-4">
@@ -95,7 +95,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-sm-6 col-lg-3">
+            <div class="col-12 col-sm-6 col-xl-3">
                 <div class="card border-0 shadow-sm bg-white rounded-3 h-100 hover-lift">
                     <div class="card-body p-3 d-flex align-items-center gap-3">
                         <div class="bg-danger bg-opacity-10 text-danger p-3 rounded-3 fs-4">
@@ -109,7 +109,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-sm-6 col-lg-3">
+            <div class="col-12 col-sm-6 col-xl-3">
                 <div class="card border-0 shadow-sm bg-white rounded-3 h-100 hover-lift">
                     <div class="card-body p-3 d-flex align-items-center gap-3">
                         <div class="bg-info bg-opacity-10 text-info p-3 rounded-3 fs-4">

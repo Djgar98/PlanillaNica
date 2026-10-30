@@ -119,28 +119,28 @@
         <div class="card bg-white shadow-sm border-0 mb-4">
             <div class="card-body p-3">
                 <form method="GET" action="{{ url_for('liquidaciones') }}" class="row g-2 align-items-center">
-                    <div class="col-md-5 col-lg-4">
+                    <div class="col-12 col-md-6 col-xl-4">
                         <div class="input-group input-group-sm">
                             <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
                             <input type="text" name="busqueda" class="form-control border-start-0" placeholder="Código, nombre o cédula de colaborador..." value="{{ busqueda }}">
                         </div>
                     </div>
-                    <div class="col-6 col-md-3 col-lg-2">
+                    <div class="col-6 col-md-3 col-xl-3">
                         <select name="motivo" class="form-select form-select-sm">
                             <option value="" {{ 'selected' if not motivo_filtro }}>-- Motivo (Todos) --</option>
                             <option value="despido" {{ 'selected' if motivo_filtro == 'despido' }}>Despido</option>
                             <option value="renuncia" {{ 'selected' if motivo_filtro == 'renuncia' }}>Renuncia</option>
                         </select>
                     </div>
-                    <div class="col-6 col-md-2 col-lg-2">
+                    <div class="col-6 col-md-3 col-xl-2">
                         <select name="estado" class="form-select form-select-sm">
                             <option value="" {{ 'selected' if not estado_filtro }}>-- Estado (Todos) --</option>
                             <option value="registrada" {{ 'selected' if estado_filtro == 'registrada' }}>Registrada</option>
                             <option value="pagada" {{ 'selected' if estado_filtro == 'pagada' }}>Pagada</option>
                         </select>
                     </div>
-                    <div class="col-12 col-md-2 col-lg-2 d-flex gap-2">
-                        <button type="submit" class="btn btn-primary btn-sm px-3 flex-grow-1">
+                    <div class="col-12 col-md-12 col-xl-3 d-flex gap-2">
+                        <button type="submit" class="btn btn-primary btn-sm px-3 flex-grow-1 flex-xl-grow-0">
                             <i class="bi bi-filter me-1"></i> Filtrar
                         </button>
                         {% if busqueda or motivo_filtro or estado_filtro %}

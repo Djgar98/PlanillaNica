@@ -82,7 +82,7 @@
                     <div id="lineas-venta">
                         <!-- Línea 1 -->
                         <div class="row g-2 mb-3 align-items-center linea-producto p-2 bg-light rounded-3 border">
-                            <div class="col-md-7">
+                            <div class="col-12 col-md-7">
                                 <label class="form-label small text-muted mb-1 d-md-none">Producto</label>
                                 <select name="producto_id" class="form-select form-select-sm select-producto" required>
                                     <option value="">-- Seleccionar Producto del Catálogo --</option>
@@ -93,14 +93,15 @@
                                     {% endfor %}
                                 </select>
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-8 col-md-3">
                                 <label class="form-label small text-muted mb-1 d-md-none">Cantidad</label>
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text bg-white text-muted">Cant.</span>
                                     <input type="number" name="cantidad" class="form-control input-cantidad" placeholder="1" min="1" required>
                                 </div>
                             </div>
-                            <div class="col-md-2 text-end">
+                            <div class="col-4 col-md-2 text-end">
+                                <label class="form-label small text-muted mb-1 d-md-none d-block">&nbsp;</label>
                                 <button type="button" class="btn btn-outline-danger btn-sm btn-eliminar-linea w-100" disabled title="Eliminar Línea">
                                     <i class="bi bi-trash"></i>
                                 </button>
@@ -135,7 +136,7 @@
     <!-- Template oculto para clonar líneas -->
     <div id="template-linea" class="d-none">
         <div class="row g-2 mb-3 align-items-center linea-producto p-2 bg-light rounded-3 border">
-            <div class="col-md-7">
+            <div class="col-12 col-md-7">
                 <select name="producto_id" class="form-select form-select-sm select-producto" required>
                     <option value="">-- Seleccionar Producto del Catálogo --</option>
                     {% for p in productos %}
@@ -145,13 +146,13 @@
                     {% endfor %}
                 </select>
             </div>
-            <div class="col-md-3">
+            <div class="col-8 col-md-3">
                 <div class="input-group input-group-sm">
                     <span class="input-group-text bg-white text-muted">Cant.</span>
                     <input type="number" name="cantidad" class="form-control input-cantidad" placeholder="1" min="1" required>
                 </div>
             </div>
-            <div class="col-md-2 text-end">
+            <div class="col-4 col-md-2 text-end">
                 <button type="button" class="btn btn-outline-danger btn-sm btn-eliminar-linea w-100" title="Eliminar Línea">
                     <i class="bi bi-trash"></i>
                 </button>

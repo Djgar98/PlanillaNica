@@ -12,8 +12,9 @@
             background-color: #f1f3f5;
         }
         .ticket-box {
+            width: 100%;
             max-width: 380px;
-            margin: 40px auto;
+            margin: 20px auto;
             background: #fff;
             padding: 20px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
@@ -21,6 +22,7 @@
             font-size: 13px;
             color: #000;
             border-top: 4px solid #000;
+            box-sizing: border-box;
         }
         .ticket-divider {
             border-top: 1px dashed #999;
@@ -53,9 +55,9 @@
     </style>
 </head>
 <body>
-    <main class="container my-3 pb-5">
+    <main class="container-fluid px-2 px-sm-3 my-3 pb-5">
         <!-- Botones de navegación (No se imprimen) -->
-        <div class="d-flex justify-content-between align-items-center mb-3 no-print mx-auto" style="max-width: 380px;">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 no-print mx-auto" style="max-width: 380px;">
             <a href="{{ url_for('detalle_venta', venta_id=venta.id) }}" class="btn btn-outline-secondary btn-sm">
                 <i class="bi bi-arrow-left me-1"></i> Volver al Detalle
             </a>

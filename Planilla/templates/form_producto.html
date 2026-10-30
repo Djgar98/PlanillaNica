@@ -13,7 +13,7 @@
 <body class="bg-light">
     {% include '_nav.html' %}
 
-    <main class="container pb-5" style="max-width: 900px;">
+    <main class="container-fluid px-3 px-sm-4 pb-5" style="max-width: 900px;">
 
         <!-- BREADCRUMB -->
         <nav aria-label="breadcrumb" class="mb-3">
@@ -210,7 +210,7 @@
             </div>
 
             <!-- BOTONES DE ACCIÓN -->
-            <div class="d-flex align-items-center justify-content-between pt-2">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 pt-2">
                 <a href="{{ url_for('inventario') }}" class="btn btn-light border px-4 py-2 text-muted">
                     <i class="bi bi-x-circle me-1"></i> Cancelar
                 </a>

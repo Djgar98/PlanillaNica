@@ -38,7 +38,7 @@
                 <h3 class="fw-bold text-slate-900 mb-1">Módulo de Cálculo de Aguinaldo</h3>
                 <p class="text-muted small mb-0">Determinación automatizada con base en salarios acumulados, días trabajados y pagos parciales registrados.</p>
             </div>
-            <div class="col-md-5 text-md-end mt-3 mt-md-0 d-flex gap-2 justify-content-md-end">
+            <div class="col-md-5 text-md-end mt-3 mt-md-0 d-flex flex-wrap gap-2 justify-content-start justify-content-md-end">
                 <a href="{{ url_for('pagos_diferidos') }}" class="btn btn-outline-primary btn-sm px-3 py-2 fw-medium shadow-sm">
                     <i class="bi bi-wallet2 me-1"></i> Control de Abonos
                 </a>
@@ -95,16 +95,16 @@
                     <div class="col-12 col-md-auto fw-semibold text-slate-700 me-2">
                         <i class="bi bi-calendar3 text-muted me-1"></i> Seleccionar Año Fiscal:
                     </div>
-                    <div class="col-6 col-md-3">
+                    <div class="col-6 col-sm-4 col-md-3 col-xl-2">
                         <input type="number" name="anio" class="form-control form-control-sm fw-bold" value="{{ anio_fiscal }}" min="2020" max="2035" required>
                     </div>
-                    <div class="col-6 col-md-auto">
+                    <div class="col-6 col-sm-auto col-md-auto">
                         <button type="submit" class="btn btn-primary btn-sm px-3">
-                            <i class="bi bi-arrow-repeat me-1"></i> Recalcular Año
+                            <i class="bi bi-arrow-repeat me-1"></i> Recalcular
                         </button>
                     </div>
-                    <div class="col-12 col-md-auto ms-auto text-muted small">
-                        <i class="bi bi-info-circle me-1"></i> Período legal: <b>01 de diciembre de {{ anio_fiscal - 1 }} al 30 de noviembre de {{ anio_fiscal }}</b> (365 días).
+                    <div class="col-12 col-xl-auto ms-xl-auto text-muted small mt-2 mt-xl-0">
+                        <i class="bi bi-info-circle me-1"></i> Período legal: <b>01/12/{{ anio_fiscal - 1 }} al 30/11/{{ anio_fiscal }}</b> (365 días).
                     </div>
                 </form>
             </div>

@@ -15,13 +15,21 @@
             color: #1e293b;
         }
         .receipt-card {
+            width: 100%;
             max-width: 800px;
-            margin: 30px auto;
+            margin: 15px auto;
             background: #ffffff;
             border: 1px solid #e2e8f0;
             border-radius: 12px;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-            padding: 40px;
+            padding: 1.25rem;
+            box-sizing: border-box;
+        }
+        @media (min-width: 768px) {
+            .receipt-card {
+                padding: 40px;
+                margin: 30px auto;
+            }
         }
         .company-header {
             border-bottom: 2px solid #0f172a;
@@ -39,7 +47,7 @@
         }
         .signature-line {
             border-top: 1px solid #94a3b8;
-            margin-top: 50px;
+            margin-top: 30px;
             padding-top: 8px;
             text-align: center;
             font-size: 0.85rem;
@@ -52,11 +60,11 @@
         }
     </style>
 </head>
-<body>
+<body class="px-2 px-sm-3 py-2 py-sm-3">
 
-    <div class="container py-4">
+    <div class="container-fluid py-2 py-sm-4 px-0">
         <!-- BOTONES DE NAVEGACIÓN (NO IMPRIMIBLES) -->
-        <div class="d-flex justify-content-between align-items-center mb-3 no-print" style="max-width: 800px; margin: 0 auto;">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 no-print" style="max-width: 800px; margin: 0 auto;">
             <a href="{{ url_for('modulo_aguinaldo', anio=res.anio_fiscal) }}" class="btn btn-outline-secondary btn-sm">
                 <i class="bi bi-arrow-left me-1"></i> Volver al Módulo
             </a>
@@ -68,13 +76,13 @@
         <div class="receipt-card">
 
             <!-- CABECERA DE LA EMPRESA -->
-            <div class="company-header d-flex justify-content-between align-items-center">
+            <div class="company-header d-flex flex-wrap justify-content-between align-items-center gap-3">
                 <div>
                     <h3 class="fw-bold mb-0 text-slate-900">PLANILLANICA S.A.</h3>
                     <p class="text-muted small mb-0">RUC: J0310000000000 &nbsp;|&nbsp; Managua, Nicaragua</p>
                     <p class="text-muted small mb-0">Sistema de Gestión y Liquidación de Planilla Laboral</p>
                 </div>
-                <div class="text-end">
+                <div class="text-start text-sm-end">
                     <span class="badge bg-success px-3 py-2 fs-6 fw-semibold text-uppercase">
                         Comprobante de Aguinaldo
                     </span>
@@ -163,20 +171,20 @@
             </div>
 
             <!-- FIRMAS DE CONFORMIDAD -->
-            <div class="row pt-4 text-center">
-                <div class="col-4">
+            <div class="row pt-4 text-center g-3">
+                <div class="col-12 col-md-4">
                     <div class="signature-line">
                         <b>Elaborado Por</b><br>
                         <small>Recursos Humanos / Nómina</small>
                     </div>
                 </div>
-                <div class="col-4">
+                <div class="col-12 col-md-4">
                     <div class="signature-line">
                         <b>Autorizado Por</b><br>
                         <small>Gerencia / Contabilidad</small>
                     </div>
                 </div>
-                <div class="col-4">
+                <div class="col-12 col-md-4">
                     <div class="signature-line">
                         <b>Recibí Conforme</b><br>
                         <small>Firma del Trabajador</small>

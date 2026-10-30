@@ -18,13 +18,21 @@
             font-family: 'JetBrains Mono', monospace;
         }
         .receipt-container {
+            width: 100%;
             max-width: 860px;
-            margin: 30px auto;
+            margin: 15px auto;
             background: #ffffff;
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
             border-radius: 12px;
-            padding: 40px 48px;
+            padding: 1.25rem;
             border: 1px solid #e2e8f0;
+            box-sizing: border-box;
+        }
+        @media (min-width: 768px) {
+            .receipt-container {
+                padding: 40px 48px;
+                margin: 30px auto;
+            }
         }
         .company-header {
             border-bottom: 2px solid #0f172a;
@@ -127,12 +135,12 @@
         }
     </style>
 </head>
-<body>
+<body class="px-2 px-sm-3 py-2 py-sm-3">
 
     <!-- BARRA SUPERIOR DE ACCIONES (NO IMPRIMIBLE) -->
-    <div class="no-print bg-white border-bottom py-2 px-4 shadow-sm mb-3">
-        <div class="d-flex justify-content-between align-items-center" style="max-width: 860px; margin: 0 auto;">
-            <div class="d-flex gap-2 align-items-center">
+    <div class="no-print bg-white border-bottom py-2 px-3 shadow-sm mb-3">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2" style="max-width: 860px; margin: 0 auto;">
+            <div class="d-flex flex-wrap gap-2 align-items-center">
                 <a href="{{ url_for('vacaciones') }}" class="btn btn-outline-secondary btn-sm">
                     <i class="bi bi-arrow-left me-1"></i> Volver a Vacaciones
                 </a>
@@ -149,11 +157,11 @@
     </div>
 
     <!-- DOCUMENTO FORMAL IMPRIMIBLE -->
-    <main class="container mb-5">
+    <main class="container-fluid px-0 mb-5">
         <div class="receipt-container">
 
             <!-- ENCABEZADO FORMAL DE LA EMPRESA -->
-            <div class="company-header d-flex justify-content-between align-items-start">
+            <div class="company-header d-flex flex-wrap justify-content-between align-items-start gap-3">
                 <div>
                     <h3 class="fw-bold mb-0 text-slate-900 tracking-tight">PLANILLANICA S.A.</h3>
                     <p class="text-muted small mb-0">RUC: <strong>J0310000000001</strong> &nbsp;|&nbsp; Managua, Nicaragua</p>
@@ -163,7 +171,7 @@
                     </h5>
                     <span class="text-muted small">Fundamento Legal: <strong>Artículos 76, 77 y 78 del Código del Trabajo (Ley No. 185)</strong></span>
                 </div>
-                <div class="text-end">
+                <div class="text-start text-sm-end">
                     <div class="font-mono fw-bold fs-5 text-dark">#VAC-{{ "%04d"|format(vacacion.id) }}</div>
                     <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 fw-semibold text-uppercase small mt-1">
                         <i class="bi bi-check-circle-fill me-1"></i> {{ vacacion.estado }}
@@ -266,19 +274,19 @@
                     <i class="bi bi-pie-chart text-primary me-1"></i> III. Balance y Control de Saldo de Ley (Art. 76 Ley 185)
                 </div>
                 <div class="row g-2 text-center">
-                    <div class="col-4">
+                    <div class="col-12 col-sm-4">
                         <div class="p-2 border rounded bg-light">
                             <div class="info-label">Días Acumulados a la Fecha</div>
                             <div class="fw-bold fs-6 text-secondary">{{ vacacion.saldo_actual.dias_acumulados }} días</div>
                         </div>
                     </div>
-                    <div class="col-4">
+                    <div class="col-12 col-sm-4">
                         <div class="p-2 border rounded bg-light">
                             <div class="info-label">Días Gozados Totales</div>
                             <div class="fw-bold fs-6 text-info">{{ vacacion.saldo_actual.dias_gozados }} días</div>
                         </div>
                     </div>
-                    <div class="col-4">
+                    <div class="col-12 col-sm-4">
                         <div class="p-2 border rounded {% if vacacion.saldo_actual.dias_pendientes < 0 %}bg-danger-subtle border-danger{% else %}bg-success-subtle border-success{% endif %}">
                             <div class="info-label">Saldo Pendiente Restante</div>
                             <div class="fw-bold fs-6 {% if vacacion.saldo_actual.dias_pendientes < 0 %}text-danger{% else %}text-success{% endif %} font-mono">
@@ -302,17 +310,17 @@
             <!-- SECCIÓN DE FIRMAS Y EVIDENCIA FÍSICA -->
             <div class="row g-4 mt-2 pt-2">
                 <!-- FIRMA DEL COLABORADOR -->
-                <div class="col-7">
+                <div class="col-12 col-md-7">
                     <div class="signature-card">
-                        <div class="row align-items-center">
-                            <div class="col-8">
+                        <div class="row align-items-center g-2">
+                            <div class="col-12 col-sm-8">
                                 <div class="signature-line">
                                     <div class="fw-bold text-dark fs-6">{{ vacacion.empleado_nombre }}</div>
                                     <div class="small text-muted font-mono">Cédula: {{ vacacion.empleado_cedula }}</div>
                                     <span class="badge bg-secondary-subtle text-secondary small text-uppercase mt-1">Firma del Trabajador</span>
                                 </div>
                             </div>
-                            <div class="col-4">
+                            <div class="col-12 col-sm-4 text-center mt-2 mt-sm-0">
                                 <div class="fingerprint-box">
                                     Huella Dactilar
                                 </div>
@@ -322,7 +330,7 @@
                 </div>
 
                 <!-- FIRMA Y SELLO DE RRHH / EMPRESA -->
-                <div class="col-5">
+                <div class="col-12 col-md-5">
                     <div class="signature-card">
                         <div class="signature-line">
                             <div class="fw-bold text-dark fs-6">{{ vacacion.usuario_registro or 'Gerencia General' }}</div>

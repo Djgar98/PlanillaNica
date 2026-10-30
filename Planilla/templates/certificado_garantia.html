@@ -15,14 +15,22 @@
         }
         .font-mono { font-family: 'JetBrains Mono', monospace; }
         .cert-card {
+            width: 100%;
             max-width: 820px;
-            margin: 40px auto;
+            margin: 20px auto;
             background: #fff;
-            padding: 40px;
+            padding: 20px;
             border-radius: 16px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.06);
             border: 2px solid #e2e8f0;
             position: relative;
+            box-sizing: border-box;
+        }
+        @media (min-width: 576px) {
+            .cert-card {
+                padding: 40px;
+                margin: 40px auto;
+            }
         }
         .cert-card::before {
             content: '';
@@ -54,7 +62,7 @@
         }
         .signature-line {
             border-top: 1px solid #94a3b8;
-            margin-top: 50px;
+            margin-top: 30px;
             padding-top: 8px;
             font-size: 13px;
             color: #475569;
@@ -79,14 +87,14 @@
         }
     </style>
 </head>
-<body class="py-4">
+<body class="py-2 py-sm-4 px-2 px-sm-3">
     <!-- BARRA SUPERIOR DE ACCIONES (NO SE IMPRIME) -->
-    <div class="container mb-4 no-print" style="max-width: 820px;">
-        <div class="d-flex justify-content-between align-items-center">
+    <div class="container px-0 mb-4 no-print" style="max-width: 820px;">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
             <a href="{{ url_for('garantias') }}" class="btn btn-outline-secondary btn-sm">
                 <i class="bi bi-arrow-left me-1"></i> Volver al Módulo de Garantías
             </a>
-            <div class="d-flex gap-2">
+            <div class="d-flex flex-wrap gap-2">
                 <a href="{{ url_for('detalle_venta', venta_id=garantia.venta_id) }}" class="btn btn-outline-primary btn-sm">
                     <i class="bi bi-receipt me-1"></i> Ver Venta #{{ garantia.venta_id }}
                 </a>
@@ -100,7 +108,7 @@
     <!-- DOCUMENTO OFICIAL CERTIFICADO -->
     <main class="cert-card">
         <!-- CABECERA -->
-        <div class="d-flex justify-content-between align-items-start border-bottom pb-4 mb-4">
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 border-bottom pb-4 mb-4">
             <div>
                 <h4 class="fw-bold mb-1 text-primary d-flex align-items-center gap-2">
                     <i class="bi bi-shield-check"></i> PlanillaNica
@@ -108,7 +116,7 @@
                 <div class="text-muted small">Sistema de Gestión de Ventas, Garantías e Inventario</div>
                 <div class="text-secondary small">Certificado Oficial de Cobertura y Garantía Técnica</div>
             </div>
-            <div class="text-end">
+            <div class="text-start text-sm-end">
                 <div class="badge bg-light text-dark border font-mono fs-6 px-3 py-2">
                     {{ garantia.codigo }}
                 </div>
@@ -117,7 +125,7 @@
         </div>
 
         <!-- ESTADO ACTUAL DE LA GARANTÍA -->
-        <div class="d-flex justify-content-between align-items-center bg-light p-3 rounded mb-4">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 bg-light p-3 rounded mb-4">
             <div>
                 <span class="text-muted small text-uppercase fw-semibold d-block">Estado de Cobertura</span>
                 {% if garantia.estado == 'activa' %}
@@ -267,15 +275,15 @@
         </div>
 
         <!-- FIRMAS -->
-        <div class="row pt-4 text-center">
-            <div class="col-6">
-                <div class="signature-line mx-4">
+        <div class="row pt-4 text-center g-3">
+            <div class="col-12 col-sm-6">
+                <div class="signature-line mx-2 mx-sm-4">
                     <strong>Firma del Cliente</strong><br>
                     <span class="small text-muted">{{ garantia.cliente or 'Consumidor' }}</span>
                 </div>
             </div>
-            <div class="col-6">
-                <div class="signature-line mx-4">
+            <div class="col-12 col-sm-6">
+                <div class="signature-line mx-2 mx-sm-4">
                     <strong>Firma y Sello Autorizado</strong><br>
                     <span class="small text-muted">PlanillaNica - Servicio Técnico & Ventas</span>
                 </div>

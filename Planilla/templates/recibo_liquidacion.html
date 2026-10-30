@@ -15,14 +15,21 @@
         }
         .font-mono {
             font-family: 'JetBrains Mono', monospace;
-        }
-        .document-container {
+        }        .document-container {
+            width: 100%;
             max-width: 900px;
-            margin: 30px auto;
+            margin: 15px auto;
             background: #ffffff;
             box-shadow: 0 4px 24px rgba(0,0,0,0.08);
             border-radius: 8px;
-            padding: 40px 50px;
+            padding: 1.25rem;
+            box-sizing: border-box;
+        }
+        @media (min-width: 768px) {
+            .document-container {
+                padding: 40px 50px;
+                margin: 30px auto;
+            }
         }
         .table-liq th {
             background-color: #f8f9fa;
@@ -36,7 +43,7 @@
             font-size: 0.95rem;
         }
         .signature-box {
-            margin-top: 55px;
+            margin-top: 30px;
             padding-top: 10px;
             border-top: 1px solid #333;
             text-align: center;
@@ -75,13 +82,13 @@
         }
     </style>
 </head>
-<body>
+<body class="px-2 px-sm-3 py-2 py-sm-3">
 
     <!-- BOTONES SUPERIORES (NO IMPRIMIBLES) -->
-    <div class="no-print bg-white border-bottom py-2 px-4 shadow-sm mb-3">
-        <div class="max-width d-flex justify-content-between align-items-center" style="max-width: 900px; margin: 0 auto;">
-            <div>
-                <a href="{{ url_for('liquidaciones') }}" class="btn btn-outline-secondary btn-sm me-2">
+    <div class="no-print bg-white border-bottom py-2 px-3 shadow-sm mb-3">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2" style="max-width: 900px; margin: 0 auto;">
+            <div class="d-flex flex-wrap gap-2">
+                <a href="{{ url_for('liquidaciones') }}" class="btn btn-outline-secondary btn-sm">
                     <i class="bi bi-arrow-left me-1"></i> Volver a Liquidaciones
                 </a>
                 <a href="{{ url_for('vacaciones') }}" class="btn btn-outline-warning btn-sm text-dark">
@@ -98,9 +105,10 @@
 
     <!-- DOCUMENTO OFICIAL -->
     <div class="document-container">
+
         <!-- ENCABEZADO FORMAL -->
-        <div class="row align-items-center border-bottom pb-3 mb-4">
-            <div class="col-8">
+        <div class="row align-items-center border-bottom pb-3 mb-4 g-2">
+            <div class="col-12 col-md-8">
                 <div class="d-flex align-items-center gap-2 mb-1">
                     <span class="fs-4 fw-bold text-dark">PLANILLANICA S.A.</span>
                     <span class="badge bg-secondary-subtle text-secondary small">RUC: J0310000000001</span>
@@ -108,7 +116,7 @@
                 <h5 class="fw-bold text-danger text-uppercase mb-0">Acta de Finiquito y Liquidación Final</h5>
                 <p class="text-muted small mb-0">Conforme a la Ley No. 185 (Código del Trabajo de Nicaragua) y Ley No. 476</p>
             </div>
-            <div class="col-4 text-end">
+            <div class="col-12 col-md-4 text-start text-md-end">
                 <div class="font-mono fw-bold fs-5 text-dark">{{ liq.codigo }}</div>
                 <div class="small text-muted">Fecha Emisión: <strong>{{ liq.fecha_salida }}</strong></div>
                 <div>
@@ -383,22 +391,22 @@
         </div>
 
         <!-- FIRMAS -->
-        <div class="row pt-4 text-center">
-            <div class="col-4">
+        <div class="row pt-4 text-center g-3">
+            <div class="col-12 col-md-4">
                 <div class="signature-box">
                     <div class="fw-bold text-dark small">{{ liq.empleado_nombre }}</div>
                     <div class="small text-muted">Cédula: {{ liq.empleado_cedula }}</div>
                     <div class="small text-uppercase fw-semibold text-secondary">Colaborador / Liquidado</div>
                 </div>
             </div>
-            <div class="col-4">
+            <div class="col-12 col-md-4">
                 <div class="signature-box">
                     <div class="fw-bold text-dark small">{{ liq.usuario_registro or 'Recursos Humanos' }}</div>
                     <div class="small text-muted">Depto. de Gestión de Talento</div>
                     <div class="small text-uppercase fw-semibold text-secondary">Elaborado por (RRHH)</div>
                 </div>
             </div>
-            <div class="col-4">
+            <div class="col-12 col-md-4">
                 <div class="signature-box">
                     <div class="fw-bold text-dark small">Gerencia General</div>
                     <div class="small text-muted">Representante Legal</div>
